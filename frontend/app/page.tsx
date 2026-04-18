@@ -1,75 +1,305 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Activity, FileText } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, ArrowRight, FileSpreadsheet, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { pollStatus } from "@/lib/api";
+import { RecentJobRecord, getRecentJobs, saveRecentJobs, upsertRecentJob } from "@/lib/recentJobs";
+
+const workflow = [
+  {
+    title: "Upload source data",
+    description: "Send a CSV and optional model artifact to start a fairness job.",
+  },
+  {
+    title: "Map protected attributes",
+    description: "Choose the target and the columns that should be evaluated for bias.",
+  },
+  {
+    title: "Review and export",
+    description: "Inspect metrics, explanation output, and download the generated PDF report.",
+  },
+];
+
+const capabilityCards = [
+  {
+    title: "Protected Groups",
+    description: "Track parity across multiple demographic cuts.",
+    icon: ShieldCheck,
+    color: "text-fuchsia-300",
+  },
+  {
+    title: "Threshold Testing",
+    description: "Inspect fairness and accuracy tradeoffs quickly.",
+    icon: SlidersHorizontal,
+    color: "text-emerald-300",
+  },
+  {
+    title: "PDF Export",
+    description: "Generate hosted-friendly compliance reports.",
+    icon: FileSpreadsheet,
+    color: "text-cyan-300",
+  },
+];
+
+function formatStage(stage: string) {
+  return stage.replace(/_/g, " ");
+}
+
+function formatStatus(stage: string) {
+  if (stage === "complete") return "Ready";
+  if (stage === "error") return "Attention";
+  return "In progress";
+}
+
+function getJobHref(job: RecentJobRecord) {
+  return job.stage === "complete" ? `/results/${job.job_id}` : `/loading/${job.job_id}`;
+}
 
 export default function Home() {
+  const [jobs, setJobs] = useState<RecentJobRecord[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const initialJobs = getRecentJobs();
+    setJobs(initialJobs);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refreshStatuses = async () => {
+      const currentJobs = getRecentJobs();
+      const refreshable = currentJobs.filter((job) => !["complete", "error"].includes(job.stage)).slice(0, 3);
+      if (refreshable.length === 0) {
+        setJobs(currentJobs);
+        return;
+      }
+
+      const updates = await Promise.all(
+        refreshable.map(async (job) => {
+          try {
+            const status = await pollStatus(job.job_id);
+            upsertRecentJob({
+              job_id: status.job_id,
+              stage: status.stage,
+              progress: status.progress,
+              message: status.error || status.message,
+              updated_at: new Date().toISOString(),
+            });
+            return true;
+          } catch {
+            return false;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        const nextJobs = getRecentJobs();
+        setJobs(nextJobs);
+        if (updates.some(Boolean)) {
+          saveRecentJobs(nextJobs);
+        }
+      }
+    };
+
+    refreshStatuses();
+    const interval = setInterval(refreshStatuses, 12000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [hydrated]);
+
+  const queueJob = jobs[0];
+  const topMetrics = useMemo(() => {
+    const activeAudits = jobs.filter((job) => !["complete", "error"].includes(job.stage)).length;
+    const reportsExported = jobs.filter((job) => job.stage === "complete").length;
+    const highRiskFindings = jobs.filter((job) => ["high", "critical"].includes((job.severity || "").toLowerCase())).length;
+
+    return [
+      { label: "Active Audits", value: String(activeAudits).padStart(2, "0"), detail: activeAudits ? "Live jobs tracked" : "No active jobs" },
+      { label: "Reports Ready", value: String(reportsExported).padStart(2, "0"), detail: reportsExported ? "Completed in this browser" : "No completed reports yet" },
+      { label: "High-Risk Findings", value: String(highRiskFindings).padStart(2, "0"), detail: highRiskFindings ? "Completed audits marked high" : "No high-risk audits stored" },
+    ];
+  }, [jobs]);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] py-12 px-4 text-center animate-slide-up">
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium mb-8">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-        </span>
-        FairLens Engine 1.0 is Live
-      </div>
+    <div className="space-y-8 animate-fade-in">
+      <section className="panel px-6 py-8 sm:px-8">
+        <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/12 bg-cyan-400/8 px-4 py-2 text-xs uppercase tracking-[0.24em] text-cyan-200">
+              Fairness Audit Workspace
+            </div>
 
-      <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 max-w-4xl">
-        Expose and Fix AI Bias <br />
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600">
-          In Minutes.
-        </span>
-      </h1>
+            <div className="space-y-4">
+              <h1 className="max-w-4xl font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                Bias review, remediation, and export in one operational dashboard.
+              </h1>
+              <p className="max-w-2xl text-lg leading-8 text-cyan-50/62">
+                FairLens now reflects the audits you actually run in this browser session, so the homepage behaves like a working workspace instead of a static showcase.
+              </p>
+            </div>
 
-      <p className="text-xl text-slate-600 mb-10 max-w-2xl leading-relaxed">
-        Enterprise-grade bias detection and remediation toolkit. Upload your predictions, identify protected attributes, and get actionable compliance reports.
-      </p>
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <Link href="/upload" className="btn-primary px-7 py-4 text-base">
+                Start audit
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+              <Link href="/results/demo" className="btn-secondary px-7 py-4 text-base">
+                Open demo results
+              </Link>
+            </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-20 w-full sm:w-auto">
-        <Link 
-          href="/upload"
-          className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group"
-        >
-          Start new audit
-          <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </Link>
-        <Link 
-          href="/results/demo"
-          className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-sm"
-        >
-          Explore interactive demo
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl w-full text-left">
-        <div className="glass p-8 rounded-2xl card-hover">
-          <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-6">
-            <Activity className="w-6 h-6" />
+            <div className="grid gap-4 sm:grid-cols-3">
+              {topMetrics.map((metric) => (
+                <div key={metric.label} className="metric-border rounded-3xl p-5">
+                  <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">{metric.label}</div>
+                  <div className="mt-3 text-4xl font-bold text-cyan-200">{metric.value}</div>
+                  <div className="mt-2 text-sm text-cyan-50/52">{metric.detail}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          <h3 className="text-xl font-bold mb-3 text-slate-900">Deep Analytics</h3>
-          <p className="text-slate-600 leading-relaxed">
-            Evaluate Disparate Impact, Equalized Odds, Demographic Parity, and Calibration across multiple demographic cuts.
-          </p>
-        </div>
-        
-        <div className="glass p-8 rounded-2xl card-hover">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-6">
-            <ShieldCheck className="w-6 h-6" />
+
+          <div className="panel-soft p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">System view</div>
+                <div className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-white">
+                  Audit Queue
+                </div>
+              </div>
+              <div className="rounded-full border border-cyan-400/12 bg-cyan-400/6 px-3 py-1 text-sm text-cyan-200">
+                {queueJob ? formatStatus(queueJob.stage) : "Idle"}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="metric-border rounded-3xl p-5">
+                {queueJob ? (
+                  <>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-white">{queueJob.label}</div>
+                        <div className="mt-1 text-sm text-cyan-50/52">{queueJob.message}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Link href={getJobHref(queueJob)} className="text-xs font-medium text-cyan-200 transition hover:text-cyan-100">
+                          Open
+                        </Link>
+                        <Activity className="h-5 w-5 text-cyan-300" />
+                      </div>
+                    </div>
+                    <div className="mt-4 h-2 rounded-full bg-cyan-950/65">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-cyan-300 to-teal-400 transition-all"
+                        style={{ width: `${Math.max(queueJob.progress, 6)}%` }}
+                      />
+                    </div>
+                    <div className="mt-3 flex justify-between text-xs text-cyan-100/42">
+                      <span>Stage: {formatStage(queueJob.stage)}</span>
+                      <span>{queueJob.progress}%</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-white">No recent audit loaded</div>
+                        <div className="mt-1 text-sm text-cyan-50/52">Start a new audit to populate the queue with real job status.</div>
+                      </div>
+                      <Activity className="h-5 w-5 text-cyan-300" />
+                    </div>
+                    <div className="mt-4 h-2 rounded-full bg-cyan-950/65" />
+                    <div className="mt-3 flex justify-between text-xs text-cyan-100/42">
+                      <span>Stage: idle</span>
+                      <span>0%</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {capabilityCards.map((card) => (
+                  <div key={card.title} className="metric-border rounded-3xl p-5">
+                    <card.icon className={`h-5 w-5 ${card.color}`} />
+                    <div className="mt-4 text-lg font-semibold text-white">{card.title}</div>
+                    <div className="mt-2 text-sm text-cyan-50/52">{card.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <h3 className="text-xl font-bold mb-3 text-slate-900">1-Click Remediation</h3>
-          <p className="text-slate-600 leading-relaxed">
-            Automatically mitigate discovered bias through reweighing and threshold calibration with quantified accuracy trade-offs.
-          </p>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="panel-soft p-6 sm:p-8">
+          <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">Workflow</div>
+          <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-white">
+            How teams use this
+          </h2>
+          <div className="mt-6 space-y-4">
+            {workflow.map((item, index) => (
+              <div key={item.title} className="metric-border rounded-3xl p-5">
+                <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">
+                  Step {index + 1}
+                </div>
+                <div className="mt-2 text-lg font-semibold text-white">{item.title}</div>
+                <div className="mt-2 text-sm leading-6 text-cyan-50/55">{item.description}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="glass p-8 rounded-2xl card-hover">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-6">
-            <FileText className="w-6 h-6" />
+        <div className="panel-soft p-6 sm:p-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">Workspace state</div>
+              <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-white">
+                Current focus
+              </h2>
+            </div>
+            <Link href="/upload" className="btn-secondary px-4 py-2 text-sm">
+              New job
+            </Link>
           </div>
-          <h3 className="text-xl font-bold mb-3 text-slate-900">Automated Reports</h3>
-          <p className="text-slate-600 leading-relaxed">
-            Generate compliant PDF reports powered by Gemini AI with simple plain-English explanations.
-          </p>
+
+          <div className="mt-6 overflow-hidden rounded-3xl border border-cyan-400/10">
+            <div className="grid grid-cols-[1.3fr_0.8fr_0.8fr] bg-cyan-400/6 px-5 py-4 text-xs uppercase tracking-[0.22em] text-cyan-100/40">
+              <div>Audit</div>
+              <div>Status</div>
+              <div>Scope</div>
+            </div>
+
+            {jobs.length > 0 ? (
+              jobs.slice(0, 4).map((job) => (
+                <Link
+                  key={job.job_id}
+                  href={getJobHref(job)}
+                  className="grid grid-cols-[1.3fr_0.8fr_0.8fr] border-t border-cyan-400/8 px-5 py-4 text-sm text-cyan-50/72 transition hover:bg-cyan-400/5"
+                >
+                  <div className="font-medium text-white">{job.label}</div>
+                  <div>{formatStatus(job.stage)}</div>
+                  <div>{job.target_column || "Dataset loaded"}</div>
+                </Link>
+              ))
+            ) : (
+              <div className="border-t border-cyan-400/8 px-5 py-6 text-sm text-cyan-50/58">
+                No audits have been run in this browser session yet.
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useRef } from 'react';
-import { UploadCloud, CheckCircle } from 'lucide-react';
+import React, { useRef, useState } from "react";
+import { CheckCircle, UploadCloud } from "lucide-react";
 
 interface DropZoneProps {
   label: string;
@@ -10,7 +10,13 @@ interface DropZoneProps {
   className?: string;
 }
 
-export const DropZone = ({ label, accept, onFileSelect, selectedFileName, className = "" }: DropZoneProps) => {
+export const DropZone = ({
+  label,
+  accept,
+  onFileSelect,
+  selectedFileName,
+  className = "",
+}: DropZoneProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,25 +49,28 @@ export const DropZone = ({ label, accept, onFileSelect, selectedFileName, classN
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`glass rounded-2xl p-8 border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 hover:border-indigo-400'} ${className}`}
+      className={`panel-soft min-h-[240px] rounded-[28px] border-2 border-dashed p-8 transition-colors ${
+        isDragging ? "border-cyan-300 bg-cyan-400/10" : "border-cyan-400/20 hover:border-cyan-300/40"
+      } flex cursor-pointer flex-col items-center justify-center ${className}`}
     >
-      <input 
-        type="file" 
+      <input
+        type="file"
         accept={accept}
-        className="hidden" 
-        ref={fileInputRef} 
-        onChange={handleChange} 
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleChange}
       />
       {selectedFileName ? (
-        <div className="flex flex-col items-center text-emerald-600">
-           <CheckCircle className="w-10 h-10 mb-4" />
-           <p className="font-semibold text-center">{selectedFileName}</p>
+        <div className="flex flex-col items-center text-emerald-300">
+          <CheckCircle className="mb-4 h-10 w-10" />
+          <p className="text-center font-semibold text-white">{selectedFileName}</p>
+          <p className="mt-2 text-sm text-cyan-50/55">File accepted and ready for processing</p>
         </div>
       ) : (
-        <div className="flex flex-col items-center text-slate-500">
-          <UploadCloud className="w-10 h-10 mb-4 text-indigo-400" />
-          <p className="font-semibold">{label}</p>
-          <p className="text-sm mt-2 opacity-80">Click or drag & drop</p>
+        <div className="flex flex-col items-center text-cyan-50/60">
+          <UploadCloud className="mb-4 h-10 w-10 text-cyan-300" />
+          <p className="font-semibold text-white">{label}</p>
+          <p className="mt-2 text-sm opacity-80">Click or drag and drop</p>
         </div>
       )}
     </div>

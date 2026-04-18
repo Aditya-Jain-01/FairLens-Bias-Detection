@@ -278,39 +278,52 @@ export async function getThreshold(
 
 export async function downloadReport(job_id: string): Promise<void> {
   if (USE_MOCK) {
-    alert("Mock mode: PDF download not available. Set NEXT_PUBLIC_USE_MOCK=false to use real API.")
-    return
+    throw new Error("Mock mode does not support PDF downloads. Use the real API to generate reports.")
   }
+
+  const pendingWindow = window.open("", "_blank", "noopener,noreferrer")
+  if (pendingWindow) {
+    pendingWindow.document.write(
+      "<html><body style='margin:0;font-family:Arial,sans-serif;background:#07111b;color:#dffcf8;display:flex;align-items:center;justify-content:center;min-height:100vh;'>Preparing report...</body></html>"
+    )
+  }
+
   try {
-    console.log(`[PDF Download] Fetching report for job: ${job_id}`)
     const res = await fetch(`${API_BASE}/report/${job_id}`)
-    
+
     if (!res.ok) {
       const errorText = await res.text()
-      console.error(`[PDF Download] API error (${res.status}):`, errorText)
       throw new Error(`API error: ${res.status} - ${errorText}`)
     }
-    
+
     const data = await res.json()
-    console.log(`[PDF Download] Response data:`, data)
-    
     const { download_url } = data
     if (!download_url) {
       throw new Error("No download_url in response")
     }
-    
+
     let url = download_url
     if (url.startsWith("/")) {
       const baseUrl = API_BASE.replace(/\/api\/v1\/?$/, "")
       url = `${baseUrl}${url}`
     }
-    
-    console.log(`[PDF Download] Opening URL: ${url}`)
-    window.open(url, "_blank")
+
+    if (pendingWindow) {
+      pendingWindow.location.href = url
+      pendingWindow.focus()
+      return
+    }
+
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.target = "_blank"
+    anchor.rel = "noopener noreferrer"
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err)
-    console.error(`[PDF Download] Error:`, errorMsg)
-    alert(`PDF download failed: ${errorMsg}`)
+    pendingWindow?.close()
+    throw err instanceof Error ? err : new Error(String(err))
   }
 }
 
