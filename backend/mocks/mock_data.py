@@ -1,0 +1,117 @@
+"""
+mocks/mock_data.py
+Exact mock data from CONTRACT.md sections 4 and 5.
+Used when USE_MOCK_PIPELINE=true or for the demo job.
+"""
+
+MOCK_RESULTS = {
+    "job_id": "3f7a1b2c-demo",
+    "completed_at": "2025-01-01T10:05:00Z",
+    "dataset_info": {
+        "total_rows": 48842,
+        "target_column": "loan_approved",
+        "protected_attributes": ["gender", "race"],
+        "positive_rate_overall": 0.241,
+    },
+    "metrics": {
+        "disparate_impact": {
+            "value": 0.62,
+            "threshold": 0.8,
+            "passed": False,
+            "description": "Ratio of positive outcome rate between unprivileged and privileged group. Must be >= 0.8 (80% rule).",
+        },
+        "demographic_parity_difference": {
+            "value": -0.193,
+            "threshold": 0.1,
+            "passed": False,
+            "description": "Difference in positive prediction rates between groups. Should be close to 0.",
+        },
+        "equalized_odds_difference": {
+            "value": -0.142,
+            "threshold": 0.1,
+            "passed": False,
+            "description": "Difference in TPR between groups. Should be close to 0.",
+        },
+        "calibration_difference": {
+            "value": 0.031,
+            "threshold": 0.1,
+            "passed": True,
+            "description": "Difference in score reliability across groups.",
+        },
+    },
+    "per_group_stats": {
+        "gender": {
+            "Male":   {"count": 21790, "positive_rate": 0.308, "tpr": 0.742, "fpr": 0.181},
+            "Female": {"count": 10771, "positive_rate": 0.115, "tpr": 0.600, "fpr": 0.062},
+        },
+        "race": {
+            "White":              {"count": 27816, "positive_rate": 0.261, "tpr": 0.731, "fpr": 0.162},
+            "Black":              {"count": 3124,  "positive_rate": 0.122, "tpr": 0.589, "fpr": 0.091},
+            "Asian-Pac-Islander": {"count": 1039,  "positive_rate": 0.276, "tpr": 0.701, "fpr": 0.130},
+            "Other":              {"count": 271,   "positive_rate": 0.143, "tpr": 0.612, "fpr": 0.105},
+        },
+    },
+    "overall_severity": "high",
+    "metrics_passed": 1,
+    "metrics_failed": 3,
+    "shap": {
+        "top_features": [
+            {"feature": "capital_gain",   "importance": 0.312, "direction": "positive"},
+            {"feature": "age",            "importance": 0.198, "direction": "positive"},
+            {"feature": "education_num",  "importance": 0.167, "direction": "positive"},
+            {"feature": "hours_per_week", "importance": 0.143, "direction": "positive"},
+            {"feature": "marital_status", "importance": 0.089, "direction": "negative"},
+            {"feature": "occupation",     "importance": 0.051, "direction": "mixed"},
+            {"feature": "relationship",   "importance": 0.040, "direction": "negative"},
+        ],
+        "protected_attr_shap": {"gender": 0.028, "race": 0.019},
+        "note": "Higher protected_attr_shap means the protected attribute is directly influencing predictions.",
+    },
+    "remediation": {
+        "reweighing": {
+            "applied": True,
+            "metrics_after": {
+                "disparate_impact":              {"value": 0.84, "passed": True},
+                "demographic_parity_difference": {"value": -0.048, "passed": True},
+                "equalized_odds_difference":     {"value": -0.071, "passed": True},
+                "calibration_difference":        {"value": 0.038, "passed": True},
+            },
+            "accuracy_before": 0.847,
+            "accuracy_after": 0.831,
+            "accuracy_delta": -0.016,
+        },
+        "threshold": {
+            "current_threshold": 0.5,
+            "privileged_group": "Male",
+            "unprivileged_group": "Female",
+        },
+    },
+}
+
+MOCK_EXPLANATION = {
+    "job_id": "3f7a1b2c-demo",
+    "generated_at": "2025-01-01T10:06:00Z",
+    "summary": "Your model shows significant gender and racial bias. Women are approved at 37% the rate of men despite similar financial profiles.",
+    "severity_label": "High bias detected",
+    "findings": [
+        {
+            "id": "f1",
+            "attribute": "gender",
+            "metric": "disparate_impact",
+            "headline": "Women approved 38% less often than men",
+            "detail": "The disparate impact ratio of 0.62 falls well below the legal 80% threshold. This means female applicants receive positive outcomes at 62% the rate of male applicants.",
+            "severity": "high",
+        },
+        {
+            "id": "f2",
+            "attribute": "race",
+            "metric": "equalized_odds_difference",
+            "headline": "Black applicants face lower true positive rates",
+            "detail": "Even when Black applicants qualify, the model correctly identifies them 14.2 percentage points less often than White applicants.",
+            "severity": "high",
+        },
+    ],
+    "recommended_fix": "reweighing",
+    "recommended_fix_reason": "Reweighing reduces disparate impact to 0.84 (above the 0.8 legal threshold) with only a 1.6% accuracy trade-off — the best balance for this dataset.",
+    "plain_english": "If you deployed this model today, it would systematically disadvantage women and Black applicants in ways that could violate equal credit opportunity laws. The good news: applying reweighing correction brings the model into compliance while keeping accuracy above 83%.",
+}

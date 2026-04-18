@@ -1,0 +1,27 @@
+{
+  "job_id": "3f7a1b2c-0000-0000-0000-000000000000",
+  "generated_at": "2025-01-01T10:06:00Z",
+  "summary": "Your model shows significant gender and racial bias. Women are approved at 37% the rate of men despite similar financial profiles.",
+  "severity_label": "High bias detected",
+  "findings": [
+    {
+      "id": "f1",
+      "attribute": "gender",
+      "metric": "disparate_impact",
+      "headline": "Women approved 38% less often than men",
+      "detail": "The disparate impact ratio of 0.62 falls well below the legal 80% threshold. This means female applicants receive positive outcomes at 62% the rate of male applicants.",
+      "severity": "high"
+    },
+    {
+      "id": "f2",
+      "attribute": "race",
+      "metric": "equalized_odds_difference",
+      "headline": "Black applicants face lower true positive rates",
+      "detail": "Even when Black applicants qualify, the model correctly identifies them 14.2 percentage points less often than White applicants.",
+      "severity": "high"
+    }
+  ],
+  "recommended_fix": "reweighing",
+  "recommended_fix_reason": "Reweighing reduces disparate impact to 0.84 (above the 0.8 legal threshold) with only a 1.6% accuracy trade-off — the best balance for this dataset.",
+  "plain_english": "If you deployed this model today, it would systematically disadvantage women and Black applicants in ways that could violate equal credit opportunity laws. The good news: applying reweighing correction brings the model into compliance while keeping accuracy above 83%."
+}

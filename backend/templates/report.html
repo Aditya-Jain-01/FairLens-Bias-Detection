@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>FairLens Audit Report — {{ explanation.job_id }}</title>
+<style>
+  /* ── Reset & Page Setup ──────────────────────────────────────────────── */
+  @page {
+    size: A4;
+    margin: 15mm 18mm 20mm 18mm;
+    @bottom-center {
+      content: "FairLens Audit Report  ·  Job " string(job-id) "  ·  Page " counter(page) " of " counter(pages);
+      font-family: Georgia, serif;
+      font-size: 8pt;
+      color: #9ca3af;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10pt;
+    color: #111827;
+    line-height: 1.6;
+    background: #ffffff;
+  }
+  h1, h2, h3, h4 { font-family: Georgia, serif; font-weight: bold; }
+  a { color: #4f46e5; text-decoration: none; }
+
+  /* ── Page Breaks ─────────────────────────────────────────────────────── */
+  .page-break { page-break-after: always; }
+  .no-break   { page-break-inside: avoid; }
+
+  /* ── Cover Page ──────────────────────────────────────────────────────── */
+  .cover {
+    height: 257mm;
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 18mm;
+    color: #f8fafc;
+    position: relative;
+  }
+  .cover-accent {
+    position: absolute;
+    top: 0; right: 0;
+    width: 80mm;
+    height: 257mm;
+    background: linear-gradient(180deg, #6366f1 0%, #312e81 100%);
+    opacity: 0.18;
+  }
+  .cover-logo {
+    font-size: 36pt;
+    font-weight: bold;
+    letter-spacing: -1px;
+    color: #818cf8;
+    margin-bottom: 4mm;
+  }
+  .cover-logo span { color: #f8fafc; }
+  .cover-tagline {
+    font-size: 12pt;
+    color: #94a3b8;
+    margin-bottom: 16mm;
+  }
+  .cover-title {
+    font-size: 22pt;
+    color: #f8fafc;
+    margin-bottom: 6mm;
+    max-width: 120mm;
+    line-height: 1.3;
+  }
+  .cover-meta {
+    font-size: 9pt;
+    color: #94a3b8;
+    margin-bottom: 3mm;
+  }
+  .cover-meta strong { color: #e2e8f0; }
+  .severity-badge-cover {
+    display: inline-block;
+    margin-top: 10mm;
+    padding: 3mm 7mm;
+    border-radius: 4px;
+    font-size: 11pt;
+    font-weight: bold;
+    color: #ffffff;
+    background: {{ severity_color }};
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Section Headers ─────────────────────────────────────────────────── */
+  .section {
+    margin-top: 10mm;
+    margin-bottom: 6mm;
+  }
+  .section-title {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #1e1b4b;
+    border-bottom: 2px solid #6366f1;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+  }
+  .section-number {
+    color: #6366f1;
+    margin-right: 2mm;
+  }
+
+  /* ── Executive Summary ───────────────────────────────────────────────── */
+  .exec-summary {
+    background: #f0f4ff;
+    border-left: 4px solid #6366f1;
+    padding: 5mm 6mm;
+    border-radius: 0 6px 6px 0;
+    font-size: 10.5pt;
+    line-height: 1.7;
+    color: #1e293b;
+  }
+
+  /* ── Tables ──────────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+    margin-bottom: 4mm;
+  }
+  th {
+    background: #1e1b4b;
+    color: #f8fafc;
+    padding: 2.5mm 3mm;
+    text-align: left;
+    font-size: 8.5pt;
+    letter-spacing: 0.3px;
+  }
+  td {
+    padding: 2mm 3mm;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  /* ── Badge Helpers ───────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 0.5mm 3mm;
+    border-radius: 3px;
+    font-size: 7.5pt;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .badge-pass  { background: #dcfce7; color: #15803d; }
+  .badge-fail  { background: #fee2e2; color: #b91c1c; }
+  .badge-high  { background: #fee2e2; color: #b91c1c; }
+  .badge-medium { background: #fef3c7; color: #b45309; }
+  .badge-low   { background: #dcfce7; color: #15803d; }
+
+  /* ── Finding Cards ───────────────────────────────────────────────────── */
+  .finding-card {
+    border: 1px solid #e0e7ff;
+    border-radius: 6px;
+    padding: 4mm 5mm;
+    margin-bottom: 4mm;
+    background: #fafafa;
+    page-break-inside: avoid;
+  }
+  .finding-card.severity-high   { border-left: 4px solid #ef4444; }
+  .finding-card.severity-medium { border-left: 4px solid #f59e0b; }
+  .finding-card.severity-low    { border-left: 4px solid #22c55e; }
+  .finding-headline {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #1e1b4b;
+    margin-bottom: 1.5mm;
+  }
+  .finding-meta {
+    font-size: 8pt;
+    color: #6b7280;
+    margin-bottom: 2mm;
+  }
+  .finding-detail {
+    font-size: 9.5pt;
+    color: #374151;
+    line-height: 1.6;
+  }
+
+  /* ── SHAP Chart container ────────────────────────────────────────────── */
+  .shap-container {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 5mm;
+  }
+
+  /* ── Remediation ─────────────────────────────────────────────────────── */
+  .accuracy-row {
+    display: flex;
+    gap: 6mm;
+    margin-bottom: 5mm;
+  }
+  .accuracy-box {
+    flex: 1;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4mm;
+    text-align: center;
+  }
+  .accuracy-value {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #1e1b4b;
+  }
+  .accuracy-label {
+    font-size: 8pt;
+    color: #6b7280;
+    margin-top: 1mm;
+  }
+  .delta-positive { color: #15803d; }
+  .delta-negative { color: #b91c1c; }
+
+  /* ── Recommended Action ──────────────────────────────────────────────── */
+  .recommended-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 5mm 6mm;
+    page-break-inside: avoid;
+  }
+  .recommended-title {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #1d4ed8;
+    margin-bottom: 2mm;
+  }
+  .recommended-detail {
+    font-size: 9.5pt;
+    color: #1e3a8a;
+    line-height: 1.6;
+  }
+
+  /* ── Two-column layout ───────────────────────────────────────────────── */
+  .two-col {
+    display: flex;
+    gap: 5mm;
+  }
+  .two-col > * { flex: 1; }
+
+  /* ── Footer note ─────────────────────────────────────────────────────── */
+  .footer-note {
+    font-size: 7.5pt;
+    color: #9ca3af;
+    text-align: center;
+    margin-top: 8mm;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 3mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 1 — COVER PAGE
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="cover page-break">
+  <div class="cover-accent"></div>
+  <div class="cover-logo">Fair<span>Lens</span></div>
+  <div class="cover-tagline">AI Bias Auditing Platform</div>
+  <div class="cover-title">Machine Learning Fairness Audit Report</div>
+  <div class="cover-meta"><strong>Job ID:</strong> {{ explanation.job_id }}</div>
+  <div class="cover-meta"><strong>Generated:</strong> {{ explanation.generated_at[:19].replace("T", " ") }} UTC</div>
+  <div class="cover-meta"><strong>Dataset:</strong> {{ results.dataset_info.total_rows | int | string }} rows · target: <em>{{ results.dataset_info.target_column }}</em></div>
+  <div class="cover-meta"><strong>Protected attributes:</strong> {{ results.dataset_info.protected_attributes | join(", ") }}</div>
+  <div class="cover-meta"><strong>Metrics passed:</strong> {{ results.metrics_passed }} / {{ results.metrics_passed + results.metrics_failed }}</div>
+  <div class="severity-badge-cover">{{ explanation.severity_label | upper }}</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 2 — EXECUTIVE SUMMARY
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <div class="section-title"><span class="section-number">2.</span>Executive Summary</div>
+  <div class="exec-summary">{{ explanation.plain_english }}</div>
+</div>
+
+<div class="section no-break" style="margin-top:4mm;">
+  <p style="font-size:10pt; color:#374151; line-height:1.7;">{{ explanation.summary }}</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 3 — DATASET OVERVIEW
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <div class="section-title"><span class="section-number">3.</span>Dataset Overview</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Total rows</td><td>{{ "{:,}".format(results.dataset_info.total_rows) }}</td></tr>
+      <tr><td>Target column</td><td>{{ results.dataset_info.target_column }}</td></tr>
+      <tr><td>Protected attributes</td><td>{{ results.dataset_info.protected_attributes | join(", ") }}</td></tr>
+      <tr><td>Overall positive prediction rate</td><td>{{ "%.1f%%"|format(results.dataset_info.positive_rate_overall * 100) }}</td></tr>
+      <tr><td>Overall severity</td><td><span class="badge badge-{{ results.overall_severity }}">{{ results.overall_severity | upper }}</span></td></tr>
+      <tr><td>Metrics passed / total</td><td>{{ results.metrics_passed }} / {{ results.metrics_passed + results.metrics_failed }}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 4 — FAIRNESS METRICS
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="section-number">4.</span>Fairness Metrics</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+        <th>Threshold</th>
+        <th>Result</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for name, m in metrics_enriched.items() %}
+      <tr>
+        <td><strong>{{ name.replace("_", " ").title() }}</strong></td>
+        <td style="font-weight:bold; color:{{ '#b91c1c' if not m.passed else '#15803d' }};">{{ "%.3f"|format(m.value) }}</td>
+        <td>{{ m.threshold }}</td>
+        <td><span class="badge badge-{{ 'pass' if m.passed else 'fail' }}">{{ m.badge.label }}</span></td>
+        <td style="font-size:8pt; color:#6b7280;">{{ m.description }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 5 — KEY FINDINGS
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="section-number">5.</span>Key Findings</div>
+  {% if explanation.findings %}
+    {% for finding in explanation.findings %}
+    <div class="finding-card severity-{{ finding.severity }} no-break">
+      <div class="finding-headline">{{ finding.headline }}</div>
+      <div class="finding-meta">
+        Attribute: <strong>{{ finding.attribute }}</strong> &nbsp;·&nbsp;
+        Metric: <strong>{{ finding.metric.replace("_", " ").title() }}</strong> &nbsp;·&nbsp;
+        <span class="badge badge-{{ finding.severity }}">{{ finding.severity | upper }}</span>
+      </div>
+      <div class="finding-detail">{{ finding.detail }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:#6b7280; font-style:italic;">No failing metrics detected — no findings to report.</p>
+  {% endif %}
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 6 — PER-GROUP STATISTICS
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="section-number">6.</span>Per-Group Statistics</div>
+  {% for attr, groups in results.per_group_stats.items() %}
+  <p style="font-size:9.5pt; font-weight:bold; color:#374151; margin-bottom:2mm; margin-top:3mm;">
+    Protected attribute: <em>{{ attr }}</em>
+  </p>
+  <table class="no-break">
+    <thead>
+      <tr>
+        <th>Group</th>
+        <th>Count</th>
+        <th>Positive Rate</th>
+        <th>True Positive Rate</th>
+        <th>False Positive Rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group_name, stats in groups.items() %}
+      <tr>
+        <td><strong>{{ group_name }}</strong></td>
+        <td>{{ "{:,}".format(stats.count) }}</td>
+        <td>{{ "%.1f%%"|format(stats.positive_rate * 100) }}</td>
+        <td>{{ "%.1f%%"|format(stats.tpr * 100) }}</td>
+        <td>{{ "%.1f%%"|format(stats.fpr * 100) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 7 — SHAP FEATURE IMPORTANCE
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <div class="section-title"><span class="section-number">7.</span>SHAP Feature Importance</div>
+  <div class="shap-container">
+    {{ shap_svg | safe }}
+  </div>
+  <p style="font-size:8.5pt; color:#6b7280; margin-top:3mm;">
+    Direct influence of protected attributes —
+    {% for attr, val in results.shap.protected_attr_shap.items() %}
+      <strong>{{ attr }}</strong>: {{ "%.3f"|format(val) }}{% if not loop.last %},&nbsp;{% endif %}
+    {% endfor %}
+    &nbsp;·&nbsp; {{ results.shap.note }}
+  </p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 8 — REMEDIATION (BEFORE / AFTER)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="section-number">8.</span>Remediation — Before &amp; After</div>
+
+  <!-- Accuracy comparison boxes -->
+  <div class="two-col no-break" style="margin-bottom:5mm;">
+    <div class="accuracy-box">
+      <div class="accuracy-value">{{ "%.1f%%"|format(accuracy_before * 100) }}</div>
+      <div class="accuracy-label">Model accuracy before reweighing</div>
+    </div>
+    <div class="accuracy-box">
+      <div class="accuracy-value">{{ "%.1f%%"|format(accuracy_after * 100) }}</div>
+      <div class="accuracy-label">Model accuracy after reweighing</div>
+    </div>
+    <div class="accuracy-box">
+      <div class="accuracy-value {% if accuracy_delta >= 0 %}delta-positive{% else %}delta-negative{% endif %}">
+        {{ "%+.1f%%"|format(accuracy_delta * 100) }}
+      </div>
+      <div class="accuracy-label">Accuracy change (trade-off)</div>
+    </div>
+  </div>
+
+  <!-- Metrics before/after table -->
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Before</th>
+        <th>After Reweighing</th>
+        <th>Threshold</th>
+        <th>Outcome</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in remediation_rows %}
+      <tr>
+        <td>{{ row.name }}</td>
+        <td style="color:{{ '#b91c1c' if not row.before_passed else '#15803d' }}; font-weight:bold;">
+          {{ "%.3f"|format(row.before_value) }}
+          <span class="badge badge-{{ 'pass' if row.before_passed else 'fail' }}">{{ 'PASS' if row.before_passed else 'FAIL' }}</span>
+        </td>
+        <td style="color:{{ '#b91c1c' if not row.after_passed else '#15803d' }}; font-weight:bold;">
+          {{ "%.3f"|format(row.after_value) }}
+          <span class="badge badge-{{ 'pass' if row.after_passed else 'fail' }}">{{ 'PASS' if row.after_passed else 'FAIL' }}</span>
+        </td>
+        <td>{{ row.threshold }}</td>
+        <td>
+          {% if not row.before_passed and row.after_passed %}
+            <span style="color:#15803d; font-weight:bold;">✓ Fixed</span>
+          {% elif row.before_passed and row.after_passed %}
+            <span style="color:#15803d;">Maintained</span>
+          {% else %}
+            <span style="color:#b91c1c;">Still failing</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 9 — RECOMMENDED ACTION
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section no-break">
+  <div class="section-title"><span class="section-number">9.</span>Recommended Action</div>
+  <div class="recommended-box">
+    <div class="recommended-title">
+      Recommended fix: {{ explanation.recommended_fix.replace("_", " ").title() }}
+    </div>
+    <div class="recommended-detail">{{ explanation.recommended_fix_reason }}</div>
+  </div>
+</div>
+
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<div class="footer-note">
+  This report was generated automatically by FairLens AI using Google Gemini 1.5 Pro via Vertex AI.
+  It is intended as decision support and does not constitute legal advice.
+  Always consult a qualified fairness expert before making model deployment decisions.
+</div>
+
+</body>
+</html>
