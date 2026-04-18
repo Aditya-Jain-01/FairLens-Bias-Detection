@@ -11,6 +11,7 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
   const [results, setResults] = useState<Results | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [aiStream, setAiStream] = useState("");
+  const [aiError, setAiError] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
        params.job_id,
        (chunk) => setAiStream(prev => prev + chunk),
        (exp) => setExplanation(exp),
-       (e) => console.error("SSE Error:", e)
+       (e) => setAiError(e.message)
     );
     return cleanup;
   }, [params.job_id]);
@@ -73,10 +74,14 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
           </div>
           
           <div className="prose prose-slate max-w-none prose-lg">
-             <p className="text-slate-700 leading-relaxed min-h-[60px]">
-               {explanation ? explanation.plain_english : aiStream || "Gemini AI is analyzing the fairness metrics..."}
-               {!explanation && <span className="inline-block w-2 h-4 ml-1 bg-slate-400 animate-pulse"></span>}
-             </p>
+              <p className="text-slate-700 leading-relaxed min-h-[60px]">
+                {explanation
+                  ? explanation.plain_english
+                  : aiError
+                  ? <span className="text-rose-600 font-medium">⚠ AI analysis failed: {aiError}</span>
+                  : aiStream || "Gemini AI is analyzing the fairness metrics..."}
+                {!explanation && !aiError && <span className="inline-block w-2 h-4 ml-1 bg-slate-400 animate-pulse"></span>}
+              </p>
           </div>
           
           {explanation && explanation.findings && (

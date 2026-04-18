@@ -267,7 +267,7 @@
   <div class="cover-tagline">AI Bias Auditing Platform</div>
   <div class="cover-title">Machine Learning Fairness Audit Report</div>
   <div class="cover-meta"><strong>Job ID:</strong> {{ explanation.job_id }}</div>
-  <div class="cover-meta"><strong>Generated:</strong> {{ explanation.generated_at[:19].replace("T", " ") }} UTC</div>
+  <div class="cover-meta"><strong>Generated:</strong> {{ (explanation.generated_at | default(''))[:19] | replace('T', ' ') }} UTC</div>
   <div class="cover-meta"><strong>Dataset:</strong> {{ results.dataset_info.total_rows | int | string }} rows · target: <em>{{ results.dataset_info.target_column }}</em></div>
   <div class="cover-meta"><strong>Protected attributes:</strong> {{ results.dataset_info.protected_attributes | join(", ") }}</div>
   <div class="cover-meta"><strong>Metrics passed:</strong> {{ results.metrics_passed }} / {{ results.metrics_passed + results.metrics_failed }}</div>
@@ -413,7 +413,7 @@
     {% for attr, val in results.shap.protected_attr_shap.items() %}
       <strong>{{ attr }}</strong>: {{ "%.3f"|format(val) }}{% if not loop.last %},&nbsp;{% endif %}
     {% endfor %}
-    &nbsp;·&nbsp; {{ results.shap.note }}
+    &nbsp;·&nbsp; {{ results.shap.note | default('') }}
   </p>
 </div>
 

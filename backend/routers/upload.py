@@ -73,8 +73,11 @@ async def upload_csv(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage error: {e}")
 
-    # Set initial status
-    set_status(job_id, "uploading", "CSV uploaded, waiting for configuration.")
+    # Set initial status (best-effort — don't fail the upload if this fails)
+    try:
+        set_status(job_id, "uploading", "CSV uploaded, waiting for configuration.")
+    except Exception:
+        pass  # Non-critical — status polling will return a default
 
     return JSONResponse({
         "job_id": job_id,

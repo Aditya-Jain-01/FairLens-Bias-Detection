@@ -88,8 +88,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:3002",
         os.getenv("FRONTEND_URL", "https://fairlens.vercel.app"),
     ],
+    allow_origin_regex=r"http://localhost:\d+",  # any localhost port for dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,9 +1,13 @@
 """
-FairLens — Vertex AI Client Wrapper
+FairLens — Gemini Client Wrapper
 
-Provides call_gemini() and stream_gemini() with retry logic.
-Lazily initialises Vertex AI — the app starts cleanly in local mode
-even when GCP_PROJECT_ID is not set.
+Supports two authentication modes (in priority order):
+  1. GEMINI_API_KEY  — Google AI Studio key (aistudio.google.com/apikey)
+                       Simpler, works without Vertex AI setup.
+  2. GCP_PROJECT_ID  — Vertex AI / Application Default Credentials
+                       Used on Cloud Run with service account roles.
+
+Set exactly one of these in your environment / Cloud Run env vars.
 """
 
 import os
@@ -14,56 +18,72 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
-# ── Initialisation ────────────────────────────────────────────────────────────
-
 _initialized = False
 _vertex_available = False
+_use_api_key = False   # True when using google-generativeai (GEMINI_API_KEY mode)
 
 
 def _ensure_init() -> None:
-    """Lazily initialise Vertex AI once per process. Non-fatal if GCP is unavailable."""
-    global _initialized, _vertex_available
-    if not _initialized:
+    """Lazily initialise Gemini once per process."""
+    global _initialized, _vertex_available, _use_api_key
+    if _initialized:
+        return
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        try:
+            import google.generativeai as genai  # type: ignore
+            genai.configure(api_key=api_key)
+            _vertex_available = True
+            _use_api_key = True
+            logger.info("Gemini initialised via GEMINI_API_KEY (Google AI Studio mode)")
+        except ImportError:
+            logger.warning("google-generativeai package not installed — install it or use Vertex AI")
+    else:
         project = os.getenv("GCP_PROJECT_ID")
         location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
         if project:
             try:
-                import vertexai
+                import vertexai  # type: ignore
                 vertexai.init(project=project, location=location)
                 _vertex_available = True
-                logger.info(f"Vertex AI initialised: project={project}, location={location}")
+                _use_api_key = False
+                logger.info(f"Gemini initialised via Vertex AI: project={project}, location={location}")
             except ImportError:
-                logger.warning("vertexai package not installed — AI features disabled")
+                logger.warning("vertexai package not installed")
             except Exception as e:
-                logger.warning(f"Vertex AI init failed: {e} — AI features disabled")
+                logger.warning(f"Vertex AI init failed: {e}")
         else:
-            logger.warning(
-                "GCP_PROJECT_ID not set — Vertex AI calls will fail at runtime. "
-                "Mock pipeline will still work for frontend testing."
-            )
-        _initialized = True
+            logger.warning("Neither GEMINI_API_KEY nor GCP_PROJECT_ID set — AI features disabled")
+
+    _initialized = True
 
 
 def _get_model(system_instruction: str = None):
-    """Return a GenerativeModel instance."""
+    """Return a GenerativeModel instance (google-generativeai or vertexai)."""
     _ensure_init()
     if not _vertex_available:
         raise RuntimeError(
-            "Vertex AI not available. Set GCP_PROJECT_ID in .env and install "
-            "google-cloud-aiplatform to enable AI features."
+            "Gemini not available. Set GEMINI_API_KEY (from aistudio.google.com/apikey) "
+            "or GCP_PROJECT_ID for Vertex AI."
         )
 
-    from vertexai.generative_models import GenerativeModel
-    from prompts.gemini_prompt import SYSTEM_PROMPT
+    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
-    if system_instruction is None:
-        system_instruction = SYSTEM_PROMPT
-
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
-    return GenerativeModel(
-        model_name=model_name,
-        system_instruction=system_instruction,
-    )
+    if _use_api_key:
+        import google.generativeai as genai  # type: ignore
+        from google.generativeai.types import GenerationConfig  # type: ignore
+        return genai.GenerativeModel(
+            model_name=model_name,
+            system_instruction=system_instruction,
+        )
+    else:
+        from vertexai.generative_models import GenerativeModel  # type: ignore
+        from prompts.gemini_prompt import SYSTEM_PROMPT
+        return GenerativeModel(
+            model_name=model_name,
+            system_instruction=system_instruction or SYSTEM_PROMPT,
+        )
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -76,33 +96,19 @@ def call_gemini(
 ) -> str:
     """
     Send a single (non-streaming) prompt to Gemini and return the text response.
-
-    Args:
-        prompt:      The user-turn prompt text.
-        system:      System instruction (defaults to SYSTEM_PROMPT).
-        max_tokens:  Maximum number of output tokens.
-        max_retries: Number of retry attempts on transient errors.
-
-    Returns:
-        The model's text response as a plain string.
-
-    Raises:
-        RuntimeError: On non-retryable errors or exhausted retries.
+    Works with both google-generativeai (API key mode) and vertexai.
     """
-    from vertexai.generative_models import GenerationConfig
     from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, GoogleAPIError
 
     model = _get_model(system)
-    generation_config = GenerationConfig(max_output_tokens=max_tokens, temperature=0.2)
+    # Both SDKs accept a plain dict for generation_config
+    generation_config = {"max_output_tokens": max_tokens, "temperature": 0.2}
 
     last_error: Exception | None = None
-    for attempt in range(1, max_retries + 2):  # attempts: 1, 2, 3
+    for attempt in range(1, max_retries + 2):
         try:
             logger.info(f"call_gemini: attempt {attempt}")
-            response = model.generate_content(
-                prompt,
-                generation_config=generation_config,
-            )
+            response = model.generate_content(prompt, generation_config=generation_config)
             text = response.text.strip()
             logger.info(f"call_gemini: success on attempt {attempt}, chars={len(text)}")
             return text
@@ -110,29 +116,26 @@ def call_gemini(
         except ResourceExhausted as exc:
             last_error = exc
             wait = 2 ** attempt
-            logger.warning(f"Quota exceeded (attempt {attempt}). Retrying in {wait}s… {exc}")
+            logger.warning(f"Quota exceeded (attempt {attempt}). Retrying in {wait}s…")
             if attempt <= max_retries:
                 time.sleep(wait)
 
         except ServiceUnavailable as exc:
             last_error = exc
             wait = 2 ** attempt
-            logger.warning(f"Vertex AI unavailable (attempt {attempt}). Retrying in {wait}s… {exc}")
+            logger.warning(f"Service unavailable (attempt {attempt}). Retrying in {wait}s…")
             if attempt <= max_retries:
                 time.sleep(wait)
 
         except GoogleAPIError as exc:
-            logger.error(f"Non-retryable Vertex AI error: {exc}")
-            raise RuntimeError(f"Vertex AI API error: {exc}") from exc
+            logger.error(f"Non-retryable Gemini error: {exc}")
+            raise RuntimeError(f"Gemini API error: {exc}") from exc
 
         except Exception as exc:
             logger.error(f"Unexpected error calling Gemini: {exc}")
             raise RuntimeError(f"Unexpected Gemini error: {exc}") from exc
 
-    raise RuntimeError(
-        f"Gemini call failed after {max_retries + 1} attempts. "
-        f"Last error: {last_error}"
-    )
+    raise RuntimeError(f"Gemini call failed after {max_retries + 1} attempts. Last error: {last_error}")
 
 
 def stream_gemini(
@@ -141,24 +144,13 @@ def stream_gemini(
     max_retries: int = 2,
 ) -> Generator[str, None, None]:
     """
-    Send a prompt to Gemini and yield text chunks as they arrive (streaming).
-
-    Args:
-        prompt:      The user-turn prompt text.
-        system:      System instruction (defaults to SYSTEM_PROMPT).
-        max_retries: Number of retry attempts on transient errors.
-
-    Yields:
-        Text chunks (strings) from the model as they stream.
-
-    Raises:
-        RuntimeError: On non-retryable errors or exhausted retries.
+    Send a prompt to Gemini and yield text chunks.
+    Works with both google-generativeai (API key mode) and vertexai.
     """
-    from vertexai.generative_models import GenerationConfig
     from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, GoogleAPIError
 
     model = _get_model(system)
-    generation_config = GenerationConfig(max_output_tokens=4096, temperature=0.2)
+    generation_config = {"max_output_tokens": 4096, "temperature": 0.2}
 
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 2):
@@ -172,8 +164,8 @@ def stream_gemini(
             for chunk in response_stream:
                 if chunk.text:
                     yield chunk.text
-            logger.info(f"stream_gemini: stream complete on attempt {attempt}")
-            return  # success — exit generator
+            logger.info(f"stream_gemini: complete on attempt {attempt}")
+            return
 
         except ResourceExhausted as exc:
             last_error = exc
@@ -185,22 +177,19 @@ def stream_gemini(
         except ServiceUnavailable as exc:
             last_error = exc
             wait = 2 ** attempt
-            logger.warning(f"Vertex AI unavailable in stream (attempt {attempt}). Retrying in {wait}s…")
+            logger.warning(f"Service unavailable in stream (attempt {attempt}). Retrying in {wait}s…")
             if attempt <= max_retries:
                 time.sleep(wait)
 
         except GoogleAPIError as exc:
-            logger.error(f"Non-retryable Vertex AI stream error: {exc}")
-            raise RuntimeError(f"Vertex AI API error: {exc}") from exc
+            logger.error(f"Non-retryable Gemini stream error: {exc}")
+            raise RuntimeError(f"Gemini API error: {exc}") from exc
 
         except Exception as exc:
             logger.error(f"Unexpected error in Gemini stream: {exc}")
             raise RuntimeError(f"Unexpected Gemini stream error: {exc}") from exc
 
-    raise RuntimeError(
-        f"Gemini streaming failed after {max_retries + 1} attempts. "
-        f"Last error: {last_error}"
-    )
+    raise RuntimeError(f"Gemini streaming failed after {max_retries + 1} attempts. Last error: {last_error}")
 
 
 def call_gemini_with_history(

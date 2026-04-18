@@ -1,6 +1,6 @@
 """
 ml/shap_engine.py
-FairLens — SHAP Attribution Engine (Person 2)
+FairLens — SHAP Attribution Engine
 
 Computes SHAP feature importance + per-group breakdown for the bias report.
 Returns the 'shap' block of results.json.
@@ -87,10 +87,34 @@ def compute_shap_values(
         X_transformed = X_sample
         feature_names = list(X.columns)
 
-    # Build SHAP explainer on the classifier
-    classifier = pipeline.named_steps["classifier"]
-    explainer = shap.LinearExplainer(classifier, X_transformed, feature_perturbation="interventional")
-    shap_vals = explainer.shap_values(X_transformed)  # shape: (n_samples, n_features)
+    # Extract classifier — handle both Pipeline and bare estimators
+    try:
+        classifier = pipeline.named_steps["classifier"]
+    except (AttributeError, KeyError):
+        classifier = pipeline  # bare model
+
+    # Build SHAP explainer — try in order: Linear → Tree → Kernel
+    shap_vals = None
+    try:
+        explainer = shap.LinearExplainer(classifier, X_transformed, feature_perturbation="interventional")
+        shap_vals = explainer.shap_values(X_transformed)
+    except Exception:
+        pass
+
+    if shap_vals is None:
+        try:
+            explainer = shap.TreeExplainer(classifier)
+            sv = explainer.shap_values(X_transformed)
+            # TreeExplainer may return [shap_class0, shap_class1] for binary classifiers
+            shap_vals = sv[1] if isinstance(sv, list) and len(sv) == 2 else sv
+        except Exception:
+            pass
+
+    if shap_vals is None:
+        # KernelExplainer: very slow, sample hard
+        sample = shap.sample(X_transformed, 50)
+        explainer = shap.KernelExplainer(classifier.predict_proba, sample)
+        shap_vals = explainer.shap_values(sample, nsamples=50)[:, :, 1]
 
     # Mean absolute SHAP per feature
     mean_abs_shap = np.abs(shap_vals).mean(axis=0)

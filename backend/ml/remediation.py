@@ -1,6 +1,6 @@
 """
 ml/remediation.py
-FairLens — Bias Remediation Engine (Person 2)
+FairLens — Bias Remediation Engine
 
 Implements:
   1. Reweighing transform (AIF360) — adjusts sample weights to reduce bias

@@ -10,6 +10,10 @@ export const ThresholdSimulator = ({ job_id, initialThreshold, currentResults }:
   const [loading, setLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  // Extract primary protected attribute from results
+  const protectedAttr: string | undefined =
+    currentResults?.dataset_info?.protected_attributes?.[0];
+
   // Use the mock or initial results to seed the chart immediately
   useEffect(() => {
     // Generate data range 0.1 to 0.9. Real system would fetch each or prefetch.
@@ -21,7 +25,7 @@ export const ThresholdSimulator = ({ job_id, initialThreshold, currentResults }:
         const points = [];
         for(let t=0.1; t<=0.91; t+=0.1) {
           try {
-            const res = await getThreshold(job_id, parseFloat(t.toFixed(1)));
+            const res = await getThreshold(job_id, parseFloat(t.toFixed(1)), protectedAttr);
             points.push({
               threshold: parseFloat(t.toFixed(1)),
               accuracy: res.accuracy,

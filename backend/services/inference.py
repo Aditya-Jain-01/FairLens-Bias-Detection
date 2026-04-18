@@ -1,14 +1,16 @@
 """
 services/inference.py
 Loads a .pkl or .onnx model and runs predictions against data.csv.
-Saves predictions.csv to storage.
+Saves predictions.csv to storage with all columns needed downstream:
+  y_pred_proba, y_pred, y_true, + all protected attribute columns.
 """
 
-import os
-import json
-import csv
 import random
+import tempfile
 from pathlib import Path
+
+import pandas as pd
+
 from services import storage
 from services.status import set_status
 
@@ -17,70 +19,98 @@ def run_inference(job_id: str, config: dict) -> Path:
     """
     Loads the model (if any) and generates predictions.csv.
 
-    If no model file is provided, we generate dummy predictions
-    (all 0.5 probability) so the pipeline doesn't break — useful
-    when users only upload a CSV for analysis.
+    predictions.csv schema:
+        y_pred_proba    — predicted probability (float 0-1)
+        y_pred          — binary prediction (0 or 1)
+        y_true          — ground-truth label from data.csv
+        <protected_attr> — one column per protected attribute
 
-    Returns the local Path to predictions.csv.
+    If no model file is provided, pseudo-predictions are generated from
+    the ground-truth labels (useful for CSV-only bias analysis).
     """
     set_status(job_id, "running_inference", "Loading model and running predictions...")
 
     csv_path = storage.get_local_file_path(job_id, "data.csv", bucket="uploads")
-    
     target_col = config.get("target_column", "")
-    
+    protected_attrs = config.get("protected_attributes", [])
+
+    # Load raw data once — used for y_true and protected attr extraction
+    raw_df = pd.read_csv(csv_path)
+
+    # Normalise binary target (handle ">50K" style string labels)
+    if target_col and target_col in raw_df.columns:
+        col = raw_df[target_col]
+        if pd.api.types.is_string_dtype(col):
+            raw_df[target_col] = col.str.strip().apply(
+                lambda x: 1 if (">50K" in str(x) or str(x).strip() == "1") else 0
+            )
+        else:
+            raw_df[target_col] = pd.to_numeric(col, errors="coerce").fillna(0).astype(int)
+
+    # ── Run model inference ──────────────────────────────────────────────────
     model_path: Path | None = None
     if storage.file_exists(job_id, "model.pkl", bucket="uploads"):
         model_path = storage.get_local_file_path(job_id, "model.pkl", bucket="uploads")
 
     if model_path and model_path.suffix == ".pkl":
-        predictions = _run_sklearn(model_path, csv_path, target_col)
+        preds = _run_sklearn(model_path, raw_df.copy(), target_col)
     elif model_path and model_path.suffix == ".onnx":
-        predictions = _run_onnx(model_path, csv_path, target_col)
+        preds = _run_onnx(model_path, raw_df.copy(), target_col)
     else:
-        # No model — use actual labels as pseudo-predictions (demo mode)
-        predictions = []
-        with open(csv_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if target_col in row:
-                    try:
-                        label = float(row[target_col])
-                        prob = label * 0.85 + random.uniform(0, 0.15)
-                        prob = min(max(prob, 0.0), 1.0)
-                        predicted = 1 if prob >= 0.5 else 0
-                    except ValueError:
-                        prob = 0.5
-                        predicted = 0
-                else:
-                    prob = 0.5
-                    predicted = 0
-                predictions.append({"probability": prob, "predicted_label": predicted})
+        # No model — derive pseudo-predictions from ground-truth labels
+        preds = _pseudo_predictions(raw_df, target_col)
 
-    # Save predictions.csv
-    import tempfile
+    # ── Build final predictions DataFrame ────────────────────────────────────
+    pred_df = pd.DataFrame(preds)
+
+    # Attach ground-truth labels
+    if target_col and target_col in raw_df.columns:
+        pred_df["y_true"] = raw_df[target_col].values
+    else:
+        pred_df["y_true"] = pred_df["y_pred"].values  # fallback
+
+    # Attach protected attribute columns (needed for threshold calibration)
+    for attr in protected_attrs:
+        if attr in raw_df.columns:
+            pred_df[attr] = raw_df[attr].values
+
+    # ── Save predictions.csv ─────────────────────────────────────────────────
     tmp = Path(tempfile.mkdtemp()) / "predictions.csv"
-    
-    with open(tmp, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["probability", "predicted_label"])
-        writer.writeheader()
-        writer.writerows(predictions)
-        
+    pred_df.to_csv(tmp, index=False)
     storage.save_upload_file(job_id, "predictions.csv", tmp)
 
     return tmp
 
 
-def _run_sklearn(model_path: Path, csv_path: Path, target_col: str) -> list[dict]:
-    import joblib
-    import pandas as pd
-    
-    model = joblib.load(model_path)
-    df = pd.read_csv(csv_path)
+# ── Inference helpers ─────────────────────────────────────────────────────────
 
+def _pseudo_predictions(df: pd.DataFrame, target_col: str) -> list[dict]:
+    """Generate pseudo-predictions from ground-truth labels (no model mode)."""
+    preds = []
+    for _, row in df.iterrows():
+        if target_col and target_col in df.columns:
+            try:
+                label = float(row[target_col])
+                prob = label * 0.85 + random.uniform(0, 0.15)
+                prob = min(max(prob, 0.0), 1.0)
+                predicted = 1 if prob >= 0.5 else 0
+            except (ValueError, TypeError):
+                prob, predicted = 0.5, 0
+        else:
+            prob, predicted = 0.5, 0
+        preds.append({"y_pred_proba": prob, "y_pred": predicted})
+    return preds
+
+
+def _run_sklearn(model_path: Path, df: pd.DataFrame, target_col: str) -> list[dict]:
+    """Run a scikit-learn .pkl model and return predictions."""
+    import joblib
+
+    model = joblib.load(model_path)
     feature_cols = [c for c in df.columns if c != target_col]
     X = df[feature_cols].copy()
 
+    # Encode remaining categoricals (in case model expects encoded input)
     for col in X.select_dtypes(include=["object", "category"]).columns:
         X[col] = X[col].astype("category").cat.codes
 
@@ -93,19 +123,17 @@ def _run_sklearn(model_path: Path, csv_path: Path, target_col: str) -> list[dict
         prob = pred.astype(float)
 
     predicted = (prob >= 0.5).astype(int)
-    
-    return [{"probability": p, "predicted_label": l} for p, l in zip(prob, predicted)]
+    return [{"y_pred_proba": float(p), "y_pred": int(l)} for p, l in zip(prob, predicted)]
 
 
-def _run_onnx(model_path: Path, csv_path: Path, target_col: str) -> list[dict]:
-    import pandas as pd
+def _run_onnx(model_path: Path, df: pd.DataFrame, target_col: str) -> list[dict]:
+    """Run an ONNX model and return predictions."""
     import numpy as np
     try:
         import onnxruntime as rt  # type: ignore
     except ImportError:
         raise ImportError("onnxruntime is not installed. Run: pip install onnxruntime")
 
-    df = pd.read_csv(csv_path)
     feature_cols = [c for c in df.columns if c != target_col]
     X = df[feature_cols].copy()
     for col in X.select_dtypes(include=["object", "category"]).columns:
@@ -118,5 +146,4 @@ def _run_onnx(model_path: Path, csv_path: Path, target_col: str) -> list[dict]:
 
     prob = result[1][:, 1] if len(result) > 1 else result[0].flatten()
     predicted = (prob >= 0.5).astype(int)
-    
-    return [{"probability": float(p), "predicted_label": int(l)} for p, l in zip(prob, predicted)]
+    return [{"y_pred_proba": float(p), "y_pred": int(l)} for p, l in zip(prob, predicted)]

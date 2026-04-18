@@ -1,6 +1,5 @@
 """
 FairLens — Gemini Prompt Templates
-Person 3 owns this file.
 Usage: imported by backend/routers/explain.py
 """
 
@@ -50,6 +49,14 @@ def build_analysis_prompt(results: dict) -> str:
     Builds the user-turn prompt from a results.json dict.
     Called by explain.py before sending to Vertex AI.
     """
+    reweigh = results.get("remediation", {}).get("reweighing", {})
+    reweigh_applied = reweigh.get("applied", False)
+    reweigh_block = (
+        f"- Accuracy before: {reweigh.get('accuracy_before', 'N/A'):.1%}\n"
+        f"- Accuracy after reweighing: {reweigh.get('accuracy_after', 'N/A'):.1%}\n"
+        f"- Metrics after reweighing: {json.dumps(reweigh.get('metrics_after', {}), indent=2)}"
+    ) if reweigh_applied else "- Reweighing not applied."
+
     return f"""
 Analyze the following bias audit results and produce a structured explanation.
 
@@ -66,13 +73,11 @@ PER-GROUP STATISTICS:
 {json.dumps(results["per_group_stats"], indent=2)}
 
 SHAP FEATURE IMPORTANCE:
-Top features driving predictions: {json.dumps(results["shap"]["top_features"][:5], indent=2)}
-Direct influence of protected attributes: {json.dumps(results["shap"]["protected_attr_shap"], indent=2)}
+Top features driving predictions: {json.dumps(results.get("shap", {}).get("top_features", [])[:5], indent=2)}
+Direct influence of protected attributes: {json.dumps(results.get("shap", {}).get("protected_attr_shap", {}), indent=2)}
 
-REMEDIATION PREVIEW (reweighing already computed):
-- Accuracy before: {results["remediation"]["reweighing"]["accuracy_before"]:.1%}
-- Accuracy after reweighing: {results["remediation"]["reweighing"]["accuracy_after"]:.1%}
-- Metrics after reweighing: {json.dumps(results["remediation"]["reweighing"]["metrics_after"], indent=2)}
+REMEDIATION PREVIEW:
+{reweigh_block}
 
 OVERALL SEVERITY: {results["overall_severity"]}
 METRICS PASSED: {results["metrics_passed"]} / {results["metrics_passed"] + results["metrics_failed"]}

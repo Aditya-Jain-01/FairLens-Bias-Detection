@@ -157,9 +157,12 @@ async def reweigh(request: ReweighRequest) -> dict:
         data_path = storage.get_local_file_path(job_id, "data.csv", bucket="uploads")
         data_df = pd.read_csv(data_path)
 
-        if "income" in data_df.columns and pd.api.types.is_string_dtype(data_df["income"]):
-            data_df["income"] = (
-                data_df["income"].str.strip().apply(lambda x: 1 if ">50K" in str(x) else 0)
+        # Normalise target column: handle '>50K'-style string labels for any column
+        if target_col in data_df.columns and pd.api.types.is_string_dtype(data_df[target_col]):
+            data_df[target_col] = (
+                data_df[target_col].str.strip().apply(
+                    lambda x: 1 if (">50K" in str(x) or str(x).strip() == "1") else 0
+                )
             )
         data_df["y_pred"] = pred_df["y_pred"].values
         feature_cols = [

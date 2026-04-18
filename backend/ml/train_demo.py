@@ -1,6 +1,6 @@
 """
 ml/train_demo.py
-FairLens — Demo Model Trainer (Person 2)
+FairLens — Demo Model Trainer
 
 Trains a LogisticRegression on the Adult Income dataset.
 Saves:

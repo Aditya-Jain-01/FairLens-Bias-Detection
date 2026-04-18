@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_api.py — Quick smoke-test for all Person 1 endpoints.
+test_api.py — Quick smoke-test for all backend endpoints.
 Run AFTER starting the server: uvicorn main:app --reload
 
 Usage:
@@ -210,7 +210,7 @@ code7, data7 = get("/status/demo")
 check("GET /status/demo", code7 == 200, f"stage={data7.get('stage','?')}")
 
 # 8. Stub endpoints
-print("\n── Stubs (Person 2 & 3) ──")
+print("\n── Stub endpoints ──")
 code8, _ = get("/remediate/threshold?job_id=demo&threshold=0.6")
 check("GET /remediate/threshold (stub)", code8 == 200)
 

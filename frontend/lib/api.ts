@@ -239,12 +239,13 @@ let thresholdTimer: ReturnType<typeof setTimeout> | null = null
 export function getThresholdDebounced(
   job_id: string,
   threshold: number,
-  cb: (result: ThresholdResult) => void
+  cb: (result: ThresholdResult) => void,
+  protected_attr?: string
 ): void {
   if (thresholdTimer) clearTimeout(thresholdTimer)
   thresholdTimer = setTimeout(async () => {
     try {
-      const result = await getThreshold(job_id, threshold)
+      const result = await getThreshold(job_id, threshold, protected_attr)
       cb(result)
     } catch {}
   }, 150)
@@ -252,11 +253,11 @@ export function getThresholdDebounced(
 
 export async function getThreshold(
   job_id: string,
-  threshold: number
+  threshold: number,
+  protected_attr?: string
 ): Promise<ThresholdResult> {
   if (USE_MOCK) {
     await delay(100)
-    // Interpolate from mock series
     const rounded = Math.round(threshold * 10) / 10
     const nearest = mockThresholdSeries[rounded] || mockThresholdSeries[0.5]
     return {
@@ -267,9 +268,12 @@ export async function getThreshold(
         nearest.demographic_parity_difference + (Math.random() - 0.5) * 0.005,
     }
   }
-  const res = await fetch(
-    `${API_BASE}/remediate/threshold?job_id=${job_id}&threshold=${threshold}`
-  )
+  const params = new URLSearchParams({
+    job_id,
+    threshold: String(threshold),
+    ...(protected_attr ? { protected: protected_attr } : {}),
+  })
+  const res = await fetch(`${API_BASE}/remediate/threshold?${params}`)
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -282,31 +286,21 @@ export async function downloadReport(job_id: string): Promise<void> {
     return
   }
   try {
-    console.log(`[PDF Download] Fetching report for job: ${job_id}`)
     const res = await fetch(`${API_BASE}/report/${job_id}`)
-    
     if (!res.ok) {
       const errorText = await res.text()
-      console.error(`[PDF Download] API error (${res.status}):`, errorText)
-      throw new Error(`API error: ${res.status} - ${errorText}`)
+      throw new Error(`API error: ${res.status} — ${errorText}`)
     }
-    
-    const data = await res.json()
-    console.log(`[PDF Download] Response data:`, data)
-    
-    const { download_url } = data
-    if (!download_url) {
-      throw new Error("No download_url in response")
-    }
-    
-    let url = download_url
-    if (url.startsWith("/")) {
-      const baseUrl = API_BASE.replace(/\/api\/v1\/?$/, "")
-      url = `${baseUrl}${url}`
-    }
-    
-    console.log(`[PDF Download] Opening URL: ${url}`)
-    window.open(url, "_blank")
+    // Backend streams the PDF bytes directly
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `fairlens_report_${job_id.slice(0, 8)}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err)
     console.error(`[PDF Download] Error:`, errorMsg)

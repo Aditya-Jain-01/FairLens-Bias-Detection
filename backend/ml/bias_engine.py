@@ -1,6 +1,6 @@
 """
 ml/bias_engine.py
-FairLens — Bias Analysis Engine (Person 2)
+FairLens — Bias Analysis Engine
 
 Computes all 4 fairness metrics using AIF360 + fairlearn + pandas.
 Returns a dict matching the results.json metrics + per_group_stats schema.

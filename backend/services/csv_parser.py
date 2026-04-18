@@ -25,11 +25,8 @@ def parse_csv(file_path: Path) -> dict:
                 headers = next(reader)
             except StopIteration:
                 raise ValueError("CSV file is empty.")
-                
             if not headers:
                 raise ValueError("CSV file has no columns.")
-                
-            # Read all rows to get count and preview
             rows = []
             row_count = 0
             for row in reader:
@@ -37,9 +34,24 @@ def parse_csv(file_path: Path) -> dict:
                     row_count += 1
                     if len(rows) < MAX_PREVIEW_ROWS:
                         rows.append(row)
-                        
-            if row_count == 0:
-                raise ValueError("CSV file has headers but no data rows.")
+    except UnicodeDecodeError:
+        # Fallback: try latin-1 (common for Excel-exported CSVs on Windows)
+        with open(file_path, "r", encoding="latin-1") as f:
+            reader = csv.reader(f)
+            try:
+                headers = next(reader)
+            except StopIteration:
+                raise ValueError("CSV file is empty.")
+            if not headers:
+                raise ValueError("CSV file has no columns.")
+            rows = []
+            row_count = 0
+            for row in reader:
+                if row:
+                    row_count += 1
+                    if len(rows) < MAX_PREVIEW_ROWS:
+                        rows.append(row)
+
                 
     except Exception as e:
         if isinstance(e, ValueError):

@@ -44,12 +44,9 @@ async def explain(request: ExplainRequest):
     Flow:
       1. Read results.json from storage
       2. Build analysis prompt
-      3. Stream Gemini response back to client chunk-by-chunk
-      4. After stream completes: parse JSON, build explanation.json, save
-      5. Update status.json → "generating_report"
-      6. Send final SSE message with complete explanation object
-
-    Falls back to returning stored explanation.json if Vertex AI is unavailable.
+      3. Collect Gemini stream in a background thread (non-blocking)
+      4. Stream chunks back to client as SSE
+      5. Parse JSON, save explanation.json, send final done message
     """
     job_id = request.job_id
 
@@ -60,17 +57,17 @@ async def explain(request: ExplainRequest):
         logger.error(f"Failed to read results.json for job {job_id}: {exc}")
         raise HTTPException(status_code=404, detail=f"results.json not found for job {job_id}")
 
-    # Check if explanation already exists (mock pipeline or previous run)
+    # Return cached explanation if already exists
     if storage.file_exists(job_id, "explanation.json", bucket="results"):
         data = storage.read_json(job_id, "explanation.json", bucket="results")
         return JSONResponse(data)
 
     # Try to use Vertex AI for real explanation
     try:
+        import asyncio
         from services.vertex import stream_gemini, parse_gemini_json
         from prompts.gemini_prompt import SYSTEM_PROMPT, build_analysis_prompt
 
-        # 2. Build the analysis prompt
         prompt = build_analysis_prompt(results)
 
         async def event_generator():
@@ -79,23 +76,26 @@ async def explain(request: ExplainRequest):
             try:
                 set_status(job_id, "generating_explanation", "Gemini is analysing bias metrics…", progress=60)
 
-                # 3. Stream from Gemini
-                for chunk_text in stream_gemini(prompt=prompt, system=SYSTEM_PROMPT):
-                    accumulated_text.append(chunk_text)
-                    payload = json.dumps({"chunk": chunk_text})
-                    yield f"data: {payload}\n\n"
+                # Run the SYNCHRONOUS Vertex AI stream in a thread pool so it
+                # doesn't block the asyncio event loop
+                chunks: list[str] = await asyncio.to_thread(
+                    lambda: list(stream_gemini(prompt=prompt, system=SYSTEM_PROMPT))
+                )
 
-                # 4. Parse the complete response as JSON
+                # Re-stream chunks to client as SSE
+                for chunk_text in chunks:
+                    accumulated_text.append(chunk_text)
+                    yield f"data: {json.dumps({'chunk': chunk_text})}\n\n"
+
+                # Parse the accumulated JSON response
                 full_text = "".join(accumulated_text)
                 try:
                     gemini_output = parse_gemini_json(full_text, prompt=prompt, max_retries=1)
                 except ValueError as parse_err:
                     logger.error(f"JSON parse failed for job {job_id}: {parse_err}")
-                    error_payload = json.dumps({"error": "Failed to parse Gemini output as JSON."})
-                    yield f"data: {error_payload}\n\n"
+                    yield f"data: {json.dumps({'error': 'Gemini returned an unparseable response. The raw text has been logged.'})}\n\n"
                     return
 
-                # 5. Build explanation.json matching the CONTRACT schema
                 explanation = {
                     "job_id": job_id,
                     "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -107,41 +107,46 @@ async def explain(request: ExplainRequest):
                     "plain_english": gemini_output.get("plain_english", ""),
                 }
 
-                # Save explanation.json
                 try:
                     storage.write_json(job_id, "explanation.json", explanation, bucket="results")
-                    logger.info(f"explanation.json saved for job {job_id}")
                 except Exception as save_err:
-                    logger.error(f"Failed to save explanation.json for job {job_id}: {save_err}")
+                    logger.error(f"Failed to save explanation.json: {save_err}")
 
                 set_status(job_id, "generating_report", "Generating PDF audit report…", progress=80)
-
-                # Send final SSE message
-                done_payload = json.dumps({"done": True, "explanation": explanation})
-                yield f"data: {done_payload}\n\n"
+                yield f"data: {json.dumps({'done': True, 'explanation': explanation})}\n\n"
 
             except RuntimeError as exc:
-                logger.error(f"Gemini streaming error for job {job_id}: {exc}")
-                error_payload = json.dumps({"error": str(exc)})
-                yield f"data: {error_payload}\n\n"
+                logger.error(f"Gemini error for job {job_id}: {exc}")
+                yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
+            except Exception as exc:
+                logger.error(f"Unexpected error in explain for job {job_id}: {exc}")
+                yield f"data: {json.dumps({'error': f'Unexpected error: {exc}'})}\n\n"
 
         return StreamingResponse(
             event_generator(),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",  # Disable nginx buffering
+                "X-Accel-Buffering": "no",
             },
         )
 
     except ImportError:
-        # Vertex AI not installed — return a stub response
         logger.warning("Vertex AI not available — returning stub explanation")
+        stub_msg = "AI explanation is unavailable — Vertex AI (Gemini) is not configured on this deployment."
         return JSONResponse({
-            "stub": True,
-            "message": "Vertex AI (Gemini) is not configured. Set GCP_PROJECT_ID and install vertexai.",
             "job_id": job_id,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "plain_english": stub_msg,
+            "summary": stub_msg,
+            "severity_label": results.get("overall_severity", "unknown").title() + " bias detected",
+            "findings": [],
+            "recommended_fix": "none",
+            "recommended_fix_reason": "",
+            "stub": True,
         })
+
 
 
 # ── POST /ask ─────────────────────────────────────────────────────────────────
