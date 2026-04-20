@@ -5,7 +5,7 @@ Saves predictions.csv to storage with all columns needed downstream:
   y_pred_proba, y_pred, y_true, + all protected attribute columns.
 """
 
-import random
+
 import tempfile
 from pathlib import Path
 
@@ -86,20 +86,22 @@ def run_inference(job_id: str, config: dict) -> Path:
 
 def _pseudo_predictions(df: pd.DataFrame, target_col: str) -> list[dict]:
     """Generate pseudo-predictions from ground-truth labels (no model mode)."""
-    preds = []
-    for _, row in df.iterrows():
-        if target_col and target_col in df.columns:
-            try:
-                label = float(row[target_col])
-                prob = label * 0.85 + random.uniform(0, 0.15)
-                prob = min(max(prob, 0.0), 1.0)
-                predicted = 1 if prob >= 0.5 else 0
-            except (ValueError, TypeError):
-                prob, predicted = 0.5, 0
-        else:
-            prob, predicted = 0.5, 0
-        preds.append({"y_pred_proba": prob, "y_pred": predicted})
-    return preds
+    import numpy as np
+
+    if target_col and target_col in df.columns:
+        labels = pd.to_numeric(df[target_col], errors="coerce").fillna(0).values.astype(float)
+        # Add small random noise so the pseudo probabilities aren't all 0/1
+        noise = np.random.default_rng(42).uniform(0, 0.15, size=len(labels))
+        probs = np.clip(labels * 0.85 + noise, 0.0, 1.0)
+    else:
+        probs = np.full(len(df), 0.5)
+
+    predicted = (probs >= 0.5).astype(int)
+    return [
+        {"y_pred_proba": float(p), "y_pred": int(l)}
+        for p, l in zip(probs, predicted)
+    ]
+
 
 
 def _run_sklearn(model_path: Path, df: pd.DataFrame, target_col: str) -> list[dict]:

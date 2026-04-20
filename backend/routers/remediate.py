@@ -200,13 +200,14 @@ async def reweigh(request: ReweighRequest) -> dict:
 async def get_threshold_metrics(
     job_id: str = Query(..., description="Job UUID"),
     threshold: float = Query(0.5, ge=0.0, le=1.0, description="Decision threshold"),
-    protected: str = Query("sex", description="Protected attribute column name"),
+    protected: str = Query(None, description="Protected attribute column name (auto-detected if omitted)"),
 ) -> ThresholdResponse:
     """
-    GET /api/v1/remediate/threshold?job_id=x&threshold=0.6&protected=sex
+    GET /api/v1/remediate/threshold?job_id=x&threshold=0.6
 
     Recomputes fairness metrics at a given classification threshold.
     Uses in-memory cache for sub-200ms response time.
+    If 'protected' is not provided, auto-detects from results.json.
     """
     start = time.perf_counter()
 
@@ -214,6 +215,15 @@ async def get_threshold_metrics(
         pred_df = _load_predictions(job_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+    # Auto-detect protected attribute from results.json if not provided
+    if not protected:
+        try:
+            results = _load_results(job_id)
+            attrs = results.get("dataset_info", {}).get("protected_attributes", [])
+            protected = attrs[0] if attrs else "sex"
+        except Exception:
+            protected = "sex"
 
     if protected not in pred_df.columns:
         raise HTTPException(

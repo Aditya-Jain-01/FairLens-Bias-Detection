@@ -1,6 +1,6 @@
 "use client";
-import React from 'react';
-import { Target, Users } from 'lucide-react';
+import React from "react";
+import { Target, Users } from "lucide-react";
 
 interface ColumnPickerProps {
   columns: string[];
@@ -10,63 +10,79 @@ interface ColumnPickerProps {
   setProtectedAttributes: (cols: string[]) => void;
 }
 
-export const ColumnPicker = ({ columns, targetColumn, setTargetColumn, protectedAttributes, setProtectedAttributes }: ColumnPickerProps) => {
-  
+export const ColumnPicker = ({
+  columns,
+  targetColumn,
+  setTargetColumn,
+  protectedAttributes,
+  setProtectedAttributes,
+}: ColumnPickerProps) => {
   const toggleProtected = (col: string) => {
     if (protectedAttributes.includes(col)) {
-      setProtectedAttributes(protectedAttributes.filter(c => c !== col));
+      setProtectedAttributes(protectedAttributes.filter((c) => c !== col));
     } else {
       setProtectedAttributes([...protectedAttributes, col]);
     }
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-8 w-full animate-slide-up mt-8">
-      {/* Target Column Selection */}
-      <div className="glass p-6 rounded-2xl">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-            <Target className="w-5 h-5" />
+    <div className="mt-8 grid w-full gap-8 md:grid-cols-2 animate-slide-up">
+      <div className="panel-soft p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="rounded-lg bg-cyan-400/10 p-2 text-cyan-300">
+            <Target className="h-5 w-5" />
           </div>
-          <h3 className="text-lg font-bold">1. Target Variable</h3>
+          <h3 className="text-lg font-bold text-white">1. Target Variable</h3>
         </div>
-        <p className="text-sm text-slate-500 mb-4">Select the dependent variable your model is predicting (e.g., "loan_approved").</p>
+        <p className="mb-4 text-sm text-cyan-50/55">
+          Select the dependent variable your model is predicting.
+        </p>
         <div className="flex flex-wrap gap-2">
-          {columns.map(col => (
-             <button 
-               key={col}
-               onClick={() => setTargetColumn(col)}
-               className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${targetColumn === col ? 'bg-indigo-600 text-white font-semibold shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-             >
-               {col}
-             </button>
+          {columns.map((col) => (
+            <button
+              key={col}
+              onClick={() => setTargetColumn(col)}
+              className={`rounded-xl px-3 py-2 text-sm transition-colors ${
+                targetColumn === col
+                  ? "bg-cyan-300 font-semibold text-slate-950 shadow-md"
+                  : "bg-cyan-400/8 text-cyan-50/72 hover:bg-cyan-400/12"
+              }`}
+            >
+              {col}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Protected Attributes Selection */}
-      <div className="glass p-6 rounded-2xl">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 bg-rose-100 text-rose-600 rounded-lg">
-            <Users className="w-5 h-5" />
+      <div className="panel-soft p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="rounded-lg bg-fuchsia-500/10 p-2 text-fuchsia-300">
+            <Users className="h-5 w-5" />
           </div>
-          <h3 className="text-lg font-bold">2. Protected Attributes</h3>
+          <h3 className="text-lg font-bold text-white">2. Protected Attributes</h3>
         </div>
-        <p className="text-sm text-slate-500 mb-4">Select the demographic or sensitive columns to evaluate for bias (e.g., "sex", "race"). You can select multiple.</p>
+        <p className="mb-4 text-sm text-cyan-50/55">
+          Select the demographic or sensitive columns to evaluate for bias. You can select multiple.
+        </p>
         <div className="flex flex-wrap gap-2">
-          {columns.map(col => {
-             // Target can't be protected
-             if (col === targetColumn) return null;
-             const isSelected = protectedAttributes.includes(col);
-             return (
-               <button 
-                 key={col}
-                 onClick={() => toggleProtected(col)}
-                 className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${isSelected ? 'bg-rose-500 text-white font-semibold shadow-md inline-flex items-center gap-1' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-               >
-                 {col}
-               </button>
-             );
+          {columns.map((col) => {
+            if (col === targetColumn) {
+              return null;
+            }
+            const isSelected = protectedAttributes.includes(col);
+            return (
+              <button
+                key={col}
+                onClick={() => toggleProtected(col)}
+                className={`rounded-xl px-3 py-2 text-sm transition-colors ${
+                  isSelected
+                    ? "inline-flex items-center gap-1 bg-fuchsia-500 font-semibold text-white shadow-md"
+                    : "bg-cyan-400/8 text-cyan-50/72 hover:bg-cyan-400/12"
+                }`}
+              >
+                {col}
+              </button>
+            );
           })}
         </div>
       </div>

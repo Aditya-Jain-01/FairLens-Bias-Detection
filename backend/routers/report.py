@@ -2,10 +2,19 @@
 routers/report.py
 PDF Report Generation and Download.
 
-GET /api/v1/report/{job_id} — Generate PDF audit report and stream it directly.
+GET /api/v1/report/{job_id}
+  — Generates PDF, saves to storage, returns {"download_url": "/api/v1/report/{job_id}/pdf"}
+
+GET /api/v1/report/{job_id}/pdf
+  — Streams PDF bytes directly from storage (works locally AND on GCS).
+    This avoids the need for GCS signed URLs or public bucket permissions.
+
+The frontend (api.ts downloadReport) opens download_url in a new tab.
+The browser receives application/pdf and the PDF downloads normally.
 """
 
 import logging
+import os
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -18,32 +27,59 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# ── GET /report/{job_id}/pdf ──────────────────────────────────────────────────
+
+@router.get("/report/{job_id}/pdf")
+async def stream_report_pdf(job_id: str):
+    """
+    Stream the PDF report bytes for a job directly from storage.
+
+    Works in both local and GCS mode — the storage layer handles
+    the download from GCS to a temp file transparently.
+
+    Called by the frontend after /report/{job_id} returns download_url.
+    """
+    if not storage.file_exists(job_id, "report.pdf", bucket="results"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"report.pdf not found for job {job_id}. Call GET /report/{job_id} first."
+        )
+    try:
+        pdf_path = storage.get_local_file_path(job_id, "report.pdf", bucket="results")
+        pdf_bytes = pdf_path.read_bytes()
+    except Exception as exc:
+        logger.error(f"Failed to read report.pdf for job {job_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"Could not read report: {exc}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="fairlens_report_{job_id[:8]}.pdf"'},
+    )
+
+
 # ── GET /report/{job_id} ──────────────────────────────────────────────────────
 
 @router.get("/report/{job_id}")
 async def get_report(job_id: str):
     """
-    Generate (or retrieve cached) PDF audit report and stream it directly.
+    Generate (or retrieve cached) PDF audit report.
+
+    Returns JSON: { "download_url": "/api/v1/report/{job_id}/pdf" }
+
+    The returned URL is a backend proxy endpoint that streams the PDF
+    directly — no GCS signed URLs or public bucket permissions required.
 
     Flow:
-      1. If report.pdf already exists in storage, stream it immediately.
-      2. Otherwise: read results.json + explanation.json, generate PDF,
-         save to storage, update status, then stream the bytes.
-
-    Returns the PDF as application/pdf — no signed URL needed.
+      1. If report.pdf already in storage, return its download URL immediately.
+      2. Otherwise: load results.json + explanation.json, generate PDF,
+         save to storage, update status, return download URL.
     """
-    # 1. Return cached PDF if available
+    download_url = f"/api/v1/report/{job_id}/pdf"
+
+    # 1. Return cached PDF URL if already generated
     if storage.file_exists(job_id, "report.pdf", bucket="results"):
-        try:
-            pdf_path = storage.get_local_file_path(job_id, "report.pdf", bucket="results")
-            pdf_bytes = pdf_path.read_bytes()
-            return Response(
-                content=pdf_bytes,
-                media_type="application/pdf",
-                headers={"Content-Disposition": f'attachment; filename="fairlens_report_{job_id[:8]}.pdf"'},
-            )
-        except Exception as exc:
-            logger.warning(f"Could not read cached report: {exc} — regenerating.")
+        return {"download_url": download_url}
 
     # 2. Load results
     try:
@@ -51,11 +87,11 @@ async def get_report(job_id: str):
     except Exception:
         raise HTTPException(status_code=404, detail=f"results.json not found for job {job_id}")
 
-    # 3. Load explanation (best-effort — PDF can still be generated without it)
+    # 3. Load explanation (PDF can still be generated without it)
     try:
         explanation = storage.read_json(job_id, "explanation.json", bucket="results")
     except Exception:
-        logger.warning(f"explanation.json not found for job {job_id} — using empty explanation.")
+        logger.warning(f"explanation.json not found for job {job_id} — using placeholder.")
         from datetime import datetime, timezone
         explanation = {
             "job_id": job_id,
@@ -82,7 +118,7 @@ async def get_report(job_id: str):
         logger.error(f"PDF generation failed for job {job_id}: {exc}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {exc}")
 
-    # 5. Persist
+    # 5. Persist to storage
     try:
         storage.write_bytes(job_id, "report.pdf", pdf_bytes, bucket="results")
         logger.info(f"report.pdf saved for job {job_id} ({len(pdf_bytes):,} bytes)")
@@ -91,9 +127,5 @@ async def get_report(job_id: str):
 
     set_status(job_id, "complete", "Audit report ready.")
 
-    # 6. Stream PDF directly — works identically locally and on Cloud Run
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="fairlens_report_{job_id[:8]}.pdf"'},
-    )
+    # 6. Return the download URL — frontend opens it in a new tab
+    return {"download_url": download_url}

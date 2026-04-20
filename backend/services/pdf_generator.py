@@ -1,8 +1,8 @@
 """
-FairLens — PDF Report Generator
+FairLens -- PDF Report Generator
 
 Renders the Jinja2 HTML template and converts it to PDF using WeasyPrint.
-All CSS must be inline — WeasyPrint does not support external stylesheets.
+All CSS must be inline -- WeasyPrint does not support external stylesheets.
 """
 
 import os
@@ -11,14 +11,14 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Path to the templates directory (relative to this file: services/ → templates/)
+# Path to the templates directory (relative to this file: services/ â†’ templates/)
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
 
 def _build_shap_svg(top_features: list) -> str:
     """
     Build an inline SVG horizontal bar chart for SHAP feature importance.
-    WeasyPrint renders inline SVG — no external image files.
+    WeasyPrint renders inline SVG -- no external image files.
     """
     if not top_features:
         return ""
@@ -124,11 +124,11 @@ def generate_pdf_report(results: dict, explanation: dict) -> bytes:
         after = metrics_after.get(name, {})
         remediation_rows.append({
             "name": name.replace("_", " ").title(),
-            "before_value": before.get("value", "—"),
+            "before_value": before.get("value", "--"),
             "before_passed": before.get("passed", False),
-            "after_value": after.get("value", "—"),
+            "after_value": after.get("value", "--"),
             "after_passed": after.get("passed", False),
-            "threshold": before.get("threshold", "—"),
+            "threshold": before.get("threshold", "--"),
         })
 
     # Jinja2 environment
@@ -150,7 +150,7 @@ def generate_pdf_report(results: dict, explanation: dict) -> bytes:
         accuracy_delta=reweighing.get("accuracy_delta", 0),
     )
 
-    logger.info("Rendering PDF from HTML template…")
+    logger.info("Rendering PDF from HTML templateâ€¦")
     try:
         from weasyprint import HTML as WeasyHTML
         pdf_bytes = WeasyHTML(string=html_string, base_url=str(_TEMPLATES_DIR)).write_pdf()
@@ -206,9 +206,9 @@ def _generate_reportlab_fallback(results: dict, explanation: dict) -> bytes:
         story.append(Paragraph("Fairness Metrics:", styles['Heading2']))
         metrics = results.get('metrics', {})
         for metric_name, metric_data in metrics.items():
-            status = "✓ PASS" if metric_data.get('passed') else "✗ FAIL"
+            status = "âœ“ PASS" if metric_data.get('passed') else "âœ— FAIL"
             story.append(Paragraph(
-                f"• <b>{metric_name.replace('_', ' ').title()}:</b> {metric_data.get('value', 'N/A')} [{status}]",
+                f"â€¢ <b>{metric_name.replace('_', ' ').title()}:</b> {metric_data.get('value', 'N/A')} [{status}]",
                 styles['Normal']
             ))
         

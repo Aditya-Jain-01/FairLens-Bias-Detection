@@ -1,39 +1,44 @@
 "use client";
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { DropZone } from '@/components/upload/DropZone';
-import { ColumnPicker } from '@/components/upload/ColumnPicker';
-import { uploadCSV, uploadModel, configureJob } from '@/lib/api';
-import { Loader2, ArrowRight } from 'lucide-react';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, ArrowRight } from "lucide-react";
+import { DropZone } from "@/components/upload/DropZone";
+import { ColumnPicker } from "@/components/upload/ColumnPicker";
+import { uploadCSV, uploadModel, configureJob } from "@/lib/api";
+import { getJobLabelFromFileName, upsertRecentJob } from "@/lib/recentJobs";
 
 export default function UploadPage() {
   const router = useRouter();
-  
-  // Form state
+
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
-  const [jobId, setJobId] = useState<string>('');
-  
-  // Selection state
-  const [targetColumn, setTargetColumn] = useState<string>('');
+  const [jobId, setJobId] = useState<string>("");
+
+  const [targetColumn, setTargetColumn] = useState<string>("");
   const [protectedAttributes, setProtectedAttributes] = useState<string[]>([]);
-  
-  // View state
+
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   const handleCsvUpload = async (file: File) => {
     setCsvFile(file);
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const res = await uploadCSV(file);
       setJobId(res.job_id);
       setColumns(res.columns);
-    } catch (e: any) {
-      setError(`Failed to upload CSV: ${e.message}`);
+      upsertRecentJob({
+        job_id: res.job_id,
+        label: getJobLabelFromFileName(file.name),
+        stage: "uploading",
+        progress: 5,
+        message: "CSV uploaded, waiting for configuration.",
+      });
+    } catch (e) {
+      setError(`Failed to upload CSV: ${(e as Error).message}`);
       setCsvFile(null);
     }
     setLoading(false);
@@ -46,81 +51,121 @@ export default function UploadPage() {
     }
     setModelFile(file);
     setLoading(true);
-    setError('');
+    setError("");
     try {
       await uploadModel(file, jobId);
-    } catch (e: any) {
-      setError(`Failed to upload Model: ${e.message}`);
+    } catch (e) {
+      setError(`Failed to upload model: ${(e as Error).message}`);
       setModelFile(null);
     }
     setLoading(false);
   };
 
   const submitConfiguration = async () => {
-    if (!targetColumn) return setError("Please select a target variable.");
-    if (protectedAttributes.length === 0) return setError("Please select at least one protected attribute.");
-    
+    if (!targetColumn) {
+      setError("Please select a target variable.");
+      return;
+    }
+    if (protectedAttributes.length === 0) {
+      setError("Please select at least one protected attribute.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await configureJob(
-        jobId,
-        targetColumn,
-        protectedAttributes,
-        1
-      );
-      // Redirect to loading status poller
+      await configureJob(jobId, targetColumn, protectedAttributes, 1);
+      upsertRecentJob({
+        job_id: jobId,
+        label: csvFile ? getJobLabelFromFileName(csvFile.name) : undefined,
+        stage: "configuring",
+        progress: 10,
+        message: "Configuration saved. Audit queued.",
+        target_column: targetColumn,
+        protected_attributes: protectedAttributes,
+      });
       router.push(`/loading/${jobId}`);
-    } catch (e: any) {
-      setError(`Failed to start job: ${e.message}`);
+    } catch (e) {
+      setError(`Failed to start job: ${(e as Error).message}`);
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto pt-8 animate-fade-in">
-      <div className="mb-10">
-        <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Configure Bias Audit</h1>
-        <p className="text-slate-500 text-lg">Define your inputs to generate the FairLens evaluation pipeline.</p>
+    <div className="mx-auto max-w-6xl animate-fade-in">
+      <div className="panel mb-8 overflow-hidden px-6 py-8 sm:px-8">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <div className="inline-flex rounded-full border border-cyan-400/15 bg-cyan-400/8 px-4 py-2 text-xs uppercase tracking-[0.26em] text-cyan-200">
+              Configure Audit
+            </div>
+            <h1 className="mt-5 font-[family-name:var(--font-display)] text-4xl font-bold text-white sm:text-5xl">
+              Upload assets and map your protected features
+            </h1>
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-cyan-50/62">
+              The pipeline stays the same. We are improving readability, guidance, and hosted usability while keeping your backend flow intact.
+            </p>
+          </div>
+
+          <div className="panel-soft p-5">
+            <div className="text-xs uppercase tracking-[0.26em] text-cyan-100/40">Audit readiness</div>
+            <div className="mt-4 grid gap-3">
+              {[
+                ["Dataset", csvFile?.name || "Required CSV pending"],
+                ["Model", modelFile?.name || "Optional artifact"],
+                ["Configuration", targetColumn ? "Mapped" : "Not mapped yet"],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between rounded-2xl border border-cyan-400/10 bg-cyan-400/5 px-4 py-3">
+                  <span className="text-sm text-cyan-50/55">{label}</span>
+                  <span className="max-w-[60%] truncate text-sm font-medium text-cyan-100">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-rose-50 text-rose-700 p-4 rounded-xl border border-rose-200 mb-8 font-medium">
+        <div className="mb-8 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 font-medium text-rose-200">
           {error}
         </div>
       )}
 
       {step === 1 && (
-        <div className="space-y-8 animate-slide-up">
-          <div className="grid md:grid-cols-2 gap-8">
+        <div className="animate-slide-up space-y-8">
+          <div className="grid gap-8 md:grid-cols-2">
             <div>
-              <h2 className="text-xl font-bold mb-4">1. Training Data (Required)</h2>
-              <DropZone 
-                label="Upload Data (.csv)" 
-                accept=".csv" 
-                onFileSelect={handleCsvUpload} 
+              <h2 className="mb-4 text-xl font-bold text-white">1. Training Data</h2>
+              <DropZone
+                label="Upload Data (.csv)"
+                accept=".csv"
+                onFileSelect={handleCsvUpload}
                 selectedFileName={csvFile?.name}
               />
             </div>
-            
-            <div className={`transition-opacity duration-300 ${!jobId ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-              <h2 className="text-xl font-bold mb-4">2. Model Artifact (Optional)</h2>
-              <DropZone 
-                label="Upload Model (.pkl / .onnx)" 
-                accept=".pkl,.onnx" 
+
+            <div className={`transition-opacity duration-300 ${!jobId ? "pointer-events-none opacity-50" : "opacity-100"}`}>
+              <h2 className="mb-4 text-xl font-bold text-white">2. Model Artifact</h2>
+              <DropZone
+                label="Upload Model (.pkl / .onnx)"
+                accept=".pkl,.onnx"
                 onFileSelect={handleModelUpload}
                 selectedFileName={modelFile?.name}
               />
             </div>
           </div>
 
-          <div className="flex justify-end pt-4">
-            <button 
+          <div className="panel-soft flex items-center justify-between p-5">
+            <div>
+              <div className="text-sm font-semibold text-white">Step 1 of 2</div>
+              <div className="text-sm text-cyan-50/55">Upload a CSV first. Model upload stays optional.</div>
+            </div>
+            <button
               onClick={() => setStep(2)}
               disabled={!jobId || loading}
-              className="flex items-center gap-2 px-8 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-medium rounded-xl transition-all shadow-md"
+              className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Next Step'}
-              {!loading && <ArrowRight className="w-5 h-5"/>}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Next Step"}
+              {!loading && <ArrowRight className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -128,26 +173,32 @@ export default function UploadPage() {
 
       {step === 2 && (
         <div className="animate-slide-up">
-           <div className="flex items-center justify-between mb-2">
-             <h2 className="text-xl font-bold">Map Variables</h2>
-             <button onClick={() => setStep(1)} className="text-sm text-slate-500 hover:text-slate-800 underline">Back to uploads</button>
-           </div>
-           
-           <ColumnPicker 
-             columns={columns}
-             targetColumn={targetColumn}
-             setTargetColumn={setTargetColumn}
-             protectedAttributes={protectedAttributes}
-             setProtectedAttributes={setProtectedAttributes}
-           />
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white">Map Variables</h2>
+            <button onClick={() => setStep(1)} className="text-sm text-cyan-200/75 transition hover:text-cyan-100">
+              Back to uploads
+            </button>
+          </div>
 
-          <div className="flex justify-end mt-12 bg-white/50 p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <button 
+          <ColumnPicker
+            columns={columns}
+            targetColumn={targetColumn}
+            setTargetColumn={setTargetColumn}
+            protectedAttributes={protectedAttributes}
+            setProtectedAttributes={setProtectedAttributes}
+          />
+
+          <div className="panel-soft mt-12 flex items-center justify-between gap-4 p-6">
+            <div>
+              <div className="text-sm font-semibold text-white">Step 2 of 2</div>
+              <div className="text-sm text-cyan-50/55">Choose one target and at least one protected attribute.</div>
+            </div>
+            <button
               onClick={submitConfiguration}
               disabled={loading || !targetColumn || protectedAttributes.length === 0}
-              className="flex items-center gap-2 px-10 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-lg font-bold rounded-xl transition-all shadow-lg"
+              className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Run Full Pipeline Audit'}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Run Full Pipeline Audit"}
             </button>
           </div>
         </div>

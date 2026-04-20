@@ -301,7 +301,7 @@ def compute_threshold_metrics(
         group_tprs.append(tpr)
 
     # Scalar fairness metrics at this threshold
-    dpd = round(float(min(group_pos_rates) - max(group_pos_rates)), 3)
+    dpd = round(float(max(group_pos_rates) - min(group_pos_rates)), 3)
 
     # Equalized odds: max gap in TPR across groups
     eod = round(float(max(group_tprs) - min(group_tprs)), 3)

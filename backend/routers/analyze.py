@@ -47,7 +47,7 @@ async def _run_pipeline(job_id: str, config: dict):
 
         # Step 2: Run model inference
         set_status(job_id, "running_inference", "Running model inference...")
-        await asyncio.get_event_loop().run_in_executor(None, run_inference, job_id, config)
+        await asyncio.get_running_loop().run_in_executor(None, run_inference, job_id, config)
 
         # Step 3: Run bias analysis
         await _run_analysis_or_mock(job_id, config)
@@ -81,7 +81,7 @@ async def _run_analysis_or_mock(job_id: str, config: dict):
     # Run bias analysis pipeline
     try:
         from services.analysis_pipeline import run_full_analysis
-        await asyncio.get_event_loop().run_in_executor(None, run_full_analysis, job_id)
+        await asyncio.get_running_loop().run_in_executor(None, run_full_analysis, job_id)
         logger.info(f"Analysis complete for job {job_id}")
         # After analysis, status is at 'generating_explanation'
         # /explain endpoint handles the rest when called by the frontend

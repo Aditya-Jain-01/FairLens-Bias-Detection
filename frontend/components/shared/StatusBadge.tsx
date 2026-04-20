@@ -1,18 +1,18 @@
-import React from 'react';
+import React from "react";
 
 export const StatusBadge = ({ severity }: { severity: string }) => {
   const colors: Record<string, string> = {
-    critical: "bg-purple-100 text-purple-700 border-purple-200",
-    high: "bg-red-100 text-red-700 border-red-200",
-    medium: "bg-orange-100 text-orange-700 border-orange-200",
-    low: "bg-green-100 text-green-700 border-green-200",
-    none: "bg-slate-100 text-slate-700 border-slate-200",
+    critical: "border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-200",
+    high: "border-rose-400/30 bg-rose-500/10 text-rose-200",
+    medium: "border-amber-300/30 bg-amber-400/10 text-amber-100",
+    low: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
+    none: "border-cyan-400/20 bg-cyan-400/10 text-cyan-100",
   };
-  
+
   const selectedClass = colors[severity.toLowerCase()] || colors.none;
-  
+
   return (
-    <span className={`px-4 py-1.5 rounded-full text-sm font-bold border capitalize ${selectedClass}`}>
+    <span className={`rounded-full border px-4 py-1.5 text-sm font-bold capitalize ${selectedClass}`}>
       {severity} Bias
     </span>
   );

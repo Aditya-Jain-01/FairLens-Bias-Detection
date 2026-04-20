@@ -51,9 +51,16 @@ def build_analysis_prompt(results: dict) -> str:
     """
     reweigh = results.get("remediation", {}).get("reweighing", {})
     reweigh_applied = reweigh.get("applied", False)
+    def _fmt_pct(val, fallback="N/A"):
+        """Format a float as percentage, or return fallback if not numeric."""
+        try:
+            return f"{float(val):.1%}"
+        except (TypeError, ValueError):
+            return str(fallback)
+
     reweigh_block = (
-        f"- Accuracy before: {reweigh.get('accuracy_before', 'N/A'):.1%}\n"
-        f"- Accuracy after reweighing: {reweigh.get('accuracy_after', 'N/A'):.1%}\n"
+        f"- Accuracy before: {_fmt_pct(reweigh.get('accuracy_before'))}\n"
+        f"- Accuracy after reweighing: {_fmt_pct(reweigh.get('accuracy_after'))}\n"
         f"- Metrics after reweighing: {json.dumps(reweigh.get('metrics_after', {}), indent=2)}"
     ) if reweigh_applied else "- Reweighing not applied."
 

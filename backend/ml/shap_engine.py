@@ -96,8 +96,10 @@ def compute_shap_values(
     # Build SHAP explainer — try in order: Linear → Tree → Kernel
     shap_vals = None
     try:
-        explainer = shap.LinearExplainer(classifier, X_transformed, feature_perturbation="interventional")
-        shap_vals = explainer.shap_values(X_transformed)
+        # feature_perturbation param was removed in SHAP >= 0.42
+        explainer = shap.LinearExplainer(classifier, X_transformed)
+        sv = explainer.shap_values(X_transformed)
+        shap_vals = sv[1] if isinstance(sv, list) and len(sv) == 2 else sv
     except Exception:
         pass
 
@@ -114,7 +116,9 @@ def compute_shap_values(
         # KernelExplainer: very slow, sample hard
         sample = shap.sample(X_transformed, 50)
         explainer = shap.KernelExplainer(classifier.predict_proba, sample)
-        shap_vals = explainer.shap_values(sample, nsamples=50)[:, :, 1]
+        sv = explainer.shap_values(sample, nsamples=50)
+        # For binary classifiers KernelExplainer returns [class0_arr, class1_arr]
+        shap_vals = sv[1] if isinstance(sv, list) and len(sv) == 2 else sv
 
     # Mean absolute SHAP per feature
     mean_abs_shap = np.abs(shap_vals).mean(axis=0)

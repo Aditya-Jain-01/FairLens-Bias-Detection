@@ -4,10 +4,12 @@ AI Explanation & Q&A Router.
 
 POST /api/v1/explain   — SSE stream of Gemini bias explanation
 POST /api/v1/ask       — follow-up Q&A (non-streaming)
+
+Uses services.gemini exclusively (stdlib urllib, no SDK required).
+Requires GEMINI_API_KEY env var (free key from aistudio.google.com/apikey).
 """
 
 import json
-import os
 import logging
 from datetime import datetime, timezone
 
@@ -43,10 +45,10 @@ async def explain(request: ExplainRequest):
 
     Flow:
       1. Read results.json from storage
-      2. Build analysis prompt
-      3. Collect Gemini stream in a background thread (non-blocking)
-      4. Stream chunks back to client as SSE
-      5. Parse JSON, save explanation.json, send final done message
+      2. If explanation.json already exists, return it as JSON immediately
+      3. Call services.gemini.generate_explanation in a thread pool
+      4. Stream progress chunks as SSE, then send the final explanation
+      5. Save explanation.json and update job status
     """
     job_id = request.job_id
 
@@ -57,96 +59,55 @@ async def explain(request: ExplainRequest):
         logger.error(f"Failed to read results.json for job {job_id}: {exc}")
         raise HTTPException(status_code=404, detail=f"results.json not found for job {job_id}")
 
-    # Return cached explanation if already exists
+    # 2. Return cached explanation if it already exists
     if storage.file_exists(job_id, "explanation.json", bucket="results"):
         data = storage.read_json(job_id, "explanation.json", bucket="results")
         return JSONResponse(data)
 
-    # Try to use Vertex AI for real explanation
-    try:
-        import asyncio
-        from services.vertex import stream_gemini, parse_gemini_json
-        from prompts.gemini_prompt import SYSTEM_PROMPT, build_analysis_prompt
+    # 3. Generate explanation via services.gemini (no SDK, pure urllib)
+    async def event_generator():
+        try:
+            import asyncio
+            from services.gemini import generate_explanation
 
-        prompt = build_analysis_prompt(results)
+            set_status(job_id, "generating_explanation", "Gemini is analysing bias metrics…", progress=60)
 
-        async def event_generator():
-            accumulated_text = []
+            # Run the synchronous Gemini call in a thread pool so it
+            # doesn't block the asyncio event loop
+            explanation = await asyncio.to_thread(generate_explanation, results, job_id)
 
+            # Emit the plain-english summary as a stream chunk so the
+            # frontend shows progressive text while waiting
+            plain = explanation.get("plain_english", "")
+            if plain:
+                yield f"data: {json.dumps({'chunk': plain})}\n\n"
+
+            # Save explanation.json
             try:
-                set_status(job_id, "generating_explanation", "Gemini is analysing bias metrics…", progress=60)
+                storage.write_json(job_id, "explanation.json", explanation, bucket="results")
+            except Exception as save_err:
+                logger.error(f"Failed to save explanation.json for job {job_id}: {save_err}")
 
-                # Run the SYNCHRONOUS Vertex AI stream in a thread pool so it
-                # doesn't block the asyncio event loop
-                chunks: list[str] = await asyncio.to_thread(
-                    lambda: list(stream_gemini(prompt=prompt, system=SYSTEM_PROMPT))
-                )
+            set_status(job_id, "generating_report", "Generating PDF audit report…", progress=80)
+            yield f"data: {json.dumps({'done': True, 'explanation': explanation})}\n\n"
 
-                # Re-stream chunks to client as SSE
-                for chunk_text in chunks:
-                    accumulated_text.append(chunk_text)
-                    yield f"data: {json.dumps({'chunk': chunk_text})}\n\n"
+        except RuntimeError as exc:
+            err_msg = str(exc)
+            logger.error(f"Gemini error for job {job_id}: {err_msg}")
+            yield f"data: {json.dumps({'error': err_msg})}\n\n"
 
-                # Parse the accumulated JSON response
-                full_text = "".join(accumulated_text)
-                try:
-                    gemini_output = parse_gemini_json(full_text, prompt=prompt, max_retries=1)
-                except ValueError as parse_err:
-                    logger.error(f"JSON parse failed for job {job_id}: {parse_err}")
-                    yield f"data: {json.dumps({'error': 'Gemini returned an unparseable response. The raw text has been logged.'})}\n\n"
-                    return
+        except Exception as exc:
+            logger.error(f"Unexpected error in explain for job {job_id}: {exc}")
+            yield f"data: {json.dumps({'error': f'Unexpected error: {exc}'})}\n\n"
 
-                explanation = {
-                    "job_id": job_id,
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                    "summary": gemini_output.get("summary", ""),
-                    "severity_label": gemini_output.get("severity_label", ""),
-                    "findings": gemini_output.get("findings", []),
-                    "recommended_fix": gemini_output.get("recommended_fix", "none"),
-                    "recommended_fix_reason": gemini_output.get("recommended_fix_reason", ""),
-                    "plain_english": gemini_output.get("plain_english", ""),
-                }
-
-                try:
-                    storage.write_json(job_id, "explanation.json", explanation, bucket="results")
-                except Exception as save_err:
-                    logger.error(f"Failed to save explanation.json: {save_err}")
-
-                set_status(job_id, "generating_report", "Generating PDF audit report…", progress=80)
-                yield f"data: {json.dumps({'done': True, 'explanation': explanation})}\n\n"
-
-            except RuntimeError as exc:
-                logger.error(f"Gemini error for job {job_id}: {exc}")
-                yield f"data: {json.dumps({'error': str(exc)})}\n\n"
-
-            except Exception as exc:
-                logger.error(f"Unexpected error in explain for job {job_id}: {exc}")
-                yield f"data: {json.dumps({'error': f'Unexpected error: {exc}'})}\n\n"
-
-        return StreamingResponse(
-            event_generator(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-            },
-        )
-
-    except ImportError:
-        logger.warning("Vertex AI not available — returning stub explanation")
-        stub_msg = "AI explanation is unavailable — Vertex AI (Gemini) is not configured on this deployment."
-        return JSONResponse({
-            "job_id": job_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "plain_english": stub_msg,
-            "summary": stub_msg,
-            "severity_label": results.get("overall_severity", "unknown").title() + " bias detected",
-            "findings": [],
-            "recommended_fix": "none",
-            "recommended_fix_reason": "",
-            "stub": True,
-        })
-
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ── POST /ask ─────────────────────────────────────────────────────────────────
@@ -159,12 +120,12 @@ async def ask(request: AskRequest):
     Flow:
       1. Read results.json and explanation.json from storage
       2. Build multi-turn conversation context
-      3. Call Gemini for a concise answer (max 300 tokens)
+      3. Call services.gemini.answer_question (max 512 tokens)
       4. Return {"answer": "..."}
     """
     job_id = request.job_id
 
-    # 1. Load both JSON files
+    # Load context files
     try:
         results = storage.read_json(job_id, "results.json", bucket="results")
     except Exception:
@@ -178,32 +139,19 @@ async def ask(request: AskRequest):
             detail=f"explanation.json not found for job {job_id}. Run /explain first.",
         )
 
-    # Try to use Vertex AI
     try:
-        from services.vertex import call_gemini_with_history
+        from services.gemini import answer_question
         from prompts.gemini_prompt import SYSTEM_PROMPT, build_followup_prompt
 
-        # 2. Build multi-turn conversation
         messages = build_followup_prompt(
             results=results,
             explanation=explanation,
             question=request.question,
         )
 
-        # 3. Call Gemini (300 tokens max for concise answers)
-        answer = call_gemini_with_history(
-            messages=messages,
-            system=SYSTEM_PROMPT,
-            max_tokens=300,
-        )
-
+        answer = answer_question(messages=messages, system=SYSTEM_PROMPT, max_tokens=512)
         return {"answer": answer}
 
-    except ImportError:
-        return {
-            "answer": "AI Q&A is not available — Vertex AI (Gemini) is not configured. "
-                      "Set GCP_PROJECT_ID and install google-cloud-aiplatform to enable this feature."
-        }
     except RuntimeError as exc:
         logger.error(f"Gemini Q&A error for job {job_id}: {exc}")
         raise HTTPException(status_code=503, detail=f"AI service error: {exc}")
