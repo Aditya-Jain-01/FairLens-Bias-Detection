@@ -30,15 +30,11 @@ _BASE = "https://generativelanguage.googleapis.com/v1beta"
 # Ordered by preference — free-tier models first, paid-only last.
 # The code tries each in order and skips those that are unavailable.
 _PREFERRED = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-flash-8b-latest",
-    "gemini-1.5-pro",
-    "gemini-1.5-pro-latest",
-    "gemini-pro",
-    "gemini-2.0-flash-lite",   # paid-only — tried last
-    "gemini-2.0-flash",        # paid-only — tried last
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemma-3-27b-it",
+    "gemma-3-12b-it",
+    "gemini-2.0-flash",
 ]
 
 _working_model: str | None = None  # cached after first successful call
@@ -98,6 +94,8 @@ def _is_no_quota(error_msg: str) -> bool:
 def _is_not_found(error_msg: str) -> bool:
     return "HTTP 404" in error_msg or "not found" in error_msg.lower()
 
+def _is_unavailable(error_msg: str) -> bool:
+    return "HTTP 503" in error_msg or "unavailable" in error_msg.lower()
 
 def _is_rate_limited(error_msg: str) -> bool:
     """Return True if the error is a normal per-minute rate limit (not limit: 0)."""
@@ -150,6 +148,10 @@ def _generate(
                 continue
             elif _is_no_quota(msg):
                 logger.debug(f"Model '{model}' has no quota (limit: 0), trying next…")
+                continue
+            elif _is_unavailable(msg):
+                logger.warning(f"Model '{model}' is unavailable (503), trying next…")
+                last_err = exc
                 continue
             elif _is_rate_limited(msg):
                 # Per-minute limit — wait, then retry once before moving on
