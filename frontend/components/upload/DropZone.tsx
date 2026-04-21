@@ -50,7 +50,7 @@ export const DropZone = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`panel-soft min-h-[240px] rounded-[28px] border-2 border-dashed p-8 transition-colors ${
-        isDragging ? "border-cyan-300 bg-cyan-400/10" : "border-cyan-400/20 hover:border-cyan-300/40"
+        isDragging ? "border-amber-400 bg-amber-500/10" : "border-amber-600/20 hover:border-amber-600/40"
       } flex cursor-pointer flex-col items-center justify-center ${className}`}
     >
       <input
@@ -61,16 +61,16 @@ export const DropZone = ({
         onChange={handleChange}
       />
       {selectedFileName ? (
-        <div className="flex flex-col items-center text-emerald-300">
+        <div className="flex flex-col items-center text-emerald-600">
           <CheckCircle className="mb-4 h-10 w-10" />
-          <p className="text-center font-semibold text-white">{selectedFileName}</p>
-          <p className="mt-2 text-sm text-cyan-50/55">File accepted and ready for processing</p>
+          <p className="text-center font-semibold text-amber-950">{selectedFileName}</p>
+          <p className="mt-2 text-sm text-amber-900/60">File accepted and ready for processing</p>
         </div>
       ) : (
-        <div className="flex flex-col items-center text-cyan-50/60">
-          <UploadCloud className="mb-4 h-10 w-10 text-cyan-300" />
-          <p className="font-semibold text-white">{label}</p>
-          <p className="mt-2 text-sm opacity-80">Click or drag and drop</p>
+        <div className="flex flex-col items-center text-amber-900/70">
+          <UploadCloud className="mb-4 h-10 w-10 text-[#d97706]" />
+          <p className="font-semibold text-amber-950">{label}</p>
+          <p className="mt-2 text-sm opacity-80 text-amber-900/60">Click or drag and drop</p>
         </div>
       )}
     </div>

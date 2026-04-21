@@ -120,6 +120,10 @@ def compute_shap_values(
         # For binary classifiers KernelExplainer returns [class0_arr, class1_arr]
         shap_vals = sv[1] if isinstance(sv, list) and len(sv) == 2 else sv
 
+    # If shap_vals is a 3D array e.g. (n_samples, n_features, n_classes), extract the positive class
+    if hasattr(shap_vals, "ndim") and shap_vals.ndim == 3:
+        shap_vals = shap_vals[:, :, 1]
+
     # Mean absolute SHAP per feature
     mean_abs_shap = np.abs(shap_vals).mean(axis=0)
     mean_shap = shap_vals.mean(axis=0)  # signed mean for direction
@@ -137,8 +141,13 @@ def compute_shap_values(
                 orig = cat
                 break
 
-        feature_importance[orig] = feature_importance.get(orig, 0.0) + float(mean_abs_shap[i])
-        feature_direction[orig] = feature_direction.get(orig, 0.0) + float(mean_shap[i])
+        try:
+            feature_importance[orig] = feature_importance.get(orig, 0.0) + float(mean_abs_shap[i])
+            feature_direction[orig] = feature_direction.get(orig, 0.0) + float(mean_shap[i])
+        except TypeError as e:
+             # Failsafe logging in case dimensions are still mismatching 
+             print(f"SHAP dimension mismatch on feature {orig} {i}: {e}")
+             pass
 
     # Sort by importance
     sorted_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)

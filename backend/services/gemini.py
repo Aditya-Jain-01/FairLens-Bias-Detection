@@ -27,18 +27,13 @@ logger = logging.getLogger(__name__)
 
 _BASE = "https://generativelanguage.googleapis.com/v1beta"
 
-# Ordered by preference — free-tier models first, paid-only last.
-# The code tries each in order and skips those that are unavailable.
+# Ordered by preference — using gemini-2.5-flash as requested by the user.
 _PREFERRED = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-flash-8b-latest",
-    "gemini-1.5-pro",
-    "gemini-1.5-pro-latest",
-    "gemini-pro",
-    "gemini-2.0-flash-lite",   # paid-only — tried last
-    "gemini-2.0-flash",        # paid-only — tried last
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemma-3-27b-it",
+    "gemma-3-12b-it",
+    "gemini-2.0-flash",
 ]
 
 _working_model: str | None = None  # cached after first successful call
@@ -95,6 +90,10 @@ def _is_no_quota(error_msg: str) -> bool:
     return "limit: 0" in error_msg or '"limit":0' in error_msg
 
 
+def _is_unavailable(error_msg: str) -> bool:
+    return "HTTP 503" in error_msg or "unavailable" in error_msg.lower()
+
+
 def _is_not_found(error_msg: str) -> bool:
     return "HTTP 404" in error_msg or "not found" in error_msg.lower()
 
@@ -145,11 +144,18 @@ def _generate(
 
         except RuntimeError as exc:
             msg = str(exc)
+            last_err = exc  # Store it so the exhausted error shows the real reason
+            logger.error(f"Gemini attempt failed for {model}: {msg}")
+            
             if _is_not_found(msg):
                 logger.debug(f"Model '{model}' not available (404), trying next…")
                 continue
             elif _is_no_quota(msg):
                 logger.debug(f"Model '{model}' has no quota (limit: 0), trying next…")
+                continue
+            elif _is_unavailable(msg):
+                logger.warning(f"Model '{model}' is unavailable (503), trying next…")
+                last_err = exc
                 continue
             elif _is_rate_limited(msg):
                 # Per-minute limit — wait, then retry once before moving on
@@ -166,7 +172,7 @@ def _generate(
                     logger.warning(f"Model '{model}' still failing after wait: {retry_exc}")
                     continue
             else:
-                raise  # real non-quota error — don't swallow it
+                raise
 
         except Exception as exc:
             raise RuntimeError(f"Unexpected error calling '{model}': {exc}") from exc
@@ -215,8 +221,28 @@ def generate_explanation(results: dict, job_id: str) -> dict:
     contents = [{"role": "user", "parts": [{"text": prompt}]}]
 
     logger.info(f"Requesting Gemini explanation for job {job_id}")
-    raw = _generate(contents, system=SYSTEM_PROMPT, max_tokens=4096)
-    parsed = _parse_json(raw, fallback_prompt=prompt)
+    try:
+        raw = _generate(contents, system=SYSTEM_PROMPT, max_tokens=4096)
+        parsed = _parse_json(raw, fallback_prompt=prompt)
+    except Exception as e:
+        logger.error(f"Gemini API exhausted or failed. Using fallback mock explanation: {e}")
+        parsed = {
+            "summary": "The Gemini API returned an error.",
+            "severity_label": results.get("overall_severity", "unknown").title() + " bias detected",
+            "findings": [
+                {
+                    "id": "err-1",
+                    "attribute": "system",
+                    "metric": "api_quota",
+                    "headline": "Gemini API Exhausted",
+                    "detail": f"The model could not be reached: {e}",
+                    "severity": "high"
+                }
+            ],
+            "recommended_fix": "reweighing",
+            "recommended_fix_reason": "Check your Google Cloud billing or AI Studio quota limits.",
+            "plain_english": "Fairness analysis complete. Unfortunately, the Gemini AI summary could not be generated because the provided API key has exhausted its quota or has 'limit: 0' restrictions on the Free Tier."
+        }
 
     return {
         "job_id": job_id,
@@ -234,9 +260,28 @@ def generate_explanation(results: dict, job_id: str) -> dict:
 
 
 def answer_question(messages: list, system: str = None, max_tokens: int = 512) -> str:
-    """Multi-turn Q&A for the /ask endpoint."""
+    """Multi-turn Q&A for the /ask endpoint. Retries on rate limits."""
     contents = [
         {"role": m["role"], "parts": m["parts"]}
         for m in messages
     ]
-    return _generate(contents, system=system, max_tokens=max_tokens, temperature=0.3)
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return _generate(contents, system=system, max_tokens=max_tokens, temperature=0.3)
+        except RuntimeError as e:
+            msg = str(e)
+            if _is_rate_limited(msg) or _is_unavailable(msg):
+                wait = 15 * (attempt + 1)
+                logger.warning(f"Q&A rate-limited (attempt {attempt + 1}/{max_retries}). Waiting {wait}s…")
+                time.sleep(wait)
+                continue
+            # Non-retryable error — raise so the router returns a proper 503
+            raise
+        except Exception as e:
+            logger.error(f"Gemini API Q&A unexpected error: {e}")
+            raise RuntimeError(f"Q&A failed: {e}") from e
+
+    # All retries exhausted
+    raise RuntimeError("Gemini API rate limit persists after retries. Please try again in a minute.")

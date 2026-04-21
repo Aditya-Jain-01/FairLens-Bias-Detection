@@ -22,7 +22,7 @@ export const MetricsGrid = ({ metrics }: { metrics: Results["metrics"] }) => {
             }`}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold text-cyan-50">{title}</h3>
+              <h3 className="font-semibold text-neutral-900">{title}</h3>
               {passed ? (
                 <CheckCircle2 className="h-6 w-6 text-emerald-400" />
               ) : (
@@ -31,24 +31,24 @@ export const MetricsGrid = ({ metrics }: { metrics: Results["metrics"] }) => {
             </div>
 
             <div className="mb-2 flex items-baseline gap-2">
-              <span className={`text-4xl font-extrabold tracking-tight ${passed ? "text-emerald-300" : "text-rose-300"}`}>
+              <span className={`text-4xl font-bold tracking-tight ${passed ? "text-emerald-700" : "text-rose-700"}`}>
                 {data.value.toFixed(3)}
               </span>
-              <span className="text-sm font-medium text-cyan-50/45">threshold {data.threshold}</span>
+              <span className="text-sm font-medium text-neutral-600">threshold {data.threshold}</span>
             </div>
 
             <div className="mt-5">
-              <div className="mb-4 h-1.5 rounded-full bg-cyan-950/70">
+              <div className="mb-4 h-1.5 rounded-full bg-neutral-200">
                 <div
                   className={`h-1.5 rounded-full ${
                     passed
-                      ? "bg-gradient-to-r from-emerald-300 to-cyan-300"
-                      : "bg-gradient-to-r from-rose-400 to-fuchsia-400"
+                      ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+                      : "bg-gradient-to-r from-rose-500 to-rose-400"
                   }`}
                   style={{ width: `${Math.min(Math.abs(data.value) / Math.max(data.threshold, 0.001), 1) * 100}%` }}
                 />
               </div>
-              <p className="text-xs font-medium leading-relaxed text-cyan-50/52">{data.description}</p>
+              <p className="text-xs font-medium leading-relaxed text-neutral-600">{data.description}</p>
             </div>
           </div>
         );

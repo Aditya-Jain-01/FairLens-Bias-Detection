@@ -4,17 +4,17 @@
 
 @layer base {
   :root {
-    --background: 221 57% 8%;
-    --foreground: 182 42% 94%;
-    --surface: 223 46% 11%;
-    --surface-strong: 225 43% 14%;
-    --surface-muted: 224 34% 18%;
-    --border: 184 51% 22%;
-    --primary: 174 78% 56%;
-    --primary-foreground: 223 57% 10%;
-    --secondary: 227 54% 18%;
-    --secondary-foreground: 185 27% 88%;
-    --accent: 288 78% 56%;
+    --background: 0 0% 98%;
+    --foreground: 24 10% 18%;
+    --surface: 0 0% 100%;
+    --surface-strong: 36 25% 94%;
+    --surface-muted: 36 22% 92%;
+    --border: 36 28% 84%;
+    --primary: 38 88% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 36 25% 94%;
+    --secondary-foreground: 24 12% 22%;
+    --accent: 152 64% 46%;
     --success: 152 76% 50%;
     --warning: 39 93% 62%;
     --destructive: 351 89% 63%;
@@ -32,25 +32,38 @@
   body {
     min-height: 100vh;
     background:
-      radial-gradient(circle at top left, rgba(71, 233, 210, 0.16), transparent 28%),
-      radial-gradient(circle at top right, rgba(201, 84, 255, 0.12), transparent 24%),
-      linear-gradient(180deg, #08111f 0%, #091423 35%, #081018 100%);
+      radial-gradient(circle at top left, rgba(218, 155, 40, 0.07), transparent 35%),
+      radial-gradient(circle at top right, rgba(52, 211, 153, 0.04), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(218, 155, 40, 0.04), transparent 50%),
+      linear-gradient(180deg, #fefdfb 0%, #fffbf6 40%, #faf8f3 100%);
     color: hsl(var(--foreground));
   }
 
   ::selection {
-    background: rgba(92, 248, 223, 0.28);
-    color: #f5fffd;
+    background: rgba(218, 155, 40, 0.2);
+    color: #3d2817;
+  }
+
+  body {
+    color: rgb(23, 23, 23);
+  }
+
+  h1, h2, h3, h4 {
+    color: rgb(23, 23, 23);
+  }
+
+  p, span, label {
+    color: rgb(64, 64, 64);
   }
 }
 
 @layer utilities {
   .glass {
-    background: linear-gradient(180deg, rgba(11, 24, 39, 0.92), rgba(10, 20, 34, 0.84));
-    @apply border shadow-2xl backdrop-blur-xl;
+    background: linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(255, 251, 246, 0.92));
+    @apply border shadow-xl backdrop-blur-xl;
     box-shadow:
-      0 20px 45px rgba(0, 0, 0, 0.36),
-      inset 0 1px 0 rgba(148, 245, 235, 0.05);
+      0 10px 28px rgba(218, 155, 40, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
   }
 
   .panel {
@@ -58,76 +71,77 @@
   }
 
   .panel-soft {
-    background: linear-gradient(180deg, rgba(12, 30, 45, 0.88), rgba(10, 19, 31, 0.82));
+    background: linear-gradient(180deg, rgba(255, 252, 248, 0.96), rgba(255, 250, 244, 0.9));
     @apply border rounded-3xl backdrop-blur-lg;
-    box-shadow: inset 0 1px 0 rgba(122, 248, 221, 0.04);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
 
   .ring-glow {
     box-shadow:
-      0 0 0 1px rgba(77, 228, 214, 0.25),
-      0 0 24px rgba(77, 228, 214, 0.16);
+      0 0 0 1px rgba(218, 155, 40, 0.24),
+      0 0 24px rgba(218, 155, 40, 0.12);
   }
 
-  .teal-glow {
+  .amber-glow {
     box-shadow:
-      0 16px 40px rgba(24, 223, 193, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      0 12px 32px rgba(218, 155, 40, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
   }
 
   .neon-text {
     @apply text-transparent bg-clip-text;
-    background-image: linear-gradient(90deg, #73f6e9 0%, #40d7ff 45%, #e0d8ff 100%);
+    background-image: linear-gradient(90deg, #d97706 0%, #ca8a04 48%, #059669 100%);
   }
 
   .grid-bg {
     background-image:
-      linear-gradient(rgba(115, 246, 233, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(115, 246, 233, 0.05) 1px, transparent 1px);
+      linear-gradient(rgba(218, 155, 40, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(218, 155, 40, 0.06) 1px, transparent 1px);
     background-size: 52px 52px;
     background-position: -1px -1px;
   }
 
   .card-hover {
-    @apply transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl;
+    @apply transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg;
   }
 
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold transition-all duration-300;
-    background: linear-gradient(135deg, #47ead3, #22c6a7);
-    color: #07131e;
+    background: linear-gradient(135deg, #e8a828, #d97706);
+    color: #ffffff;
     box-shadow:
-      0 16px 34px rgba(45, 223, 195, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.26);
+      0 8px 20px rgba(218, 155, 40, 0.24),
+      inset 0 1px 0 rgba(255, 245, 200, 0.4);
   }
 
   .btn-primary:hover {
     transform: translateY(-1px);
     box-shadow:
-      0 20px 42px rgba(45, 223, 195, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      0 12px 28px rgba(218, 155, 40, 0.32),
+      inset 0 1px 0 rgba(255, 245, 200, 0.5);
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold text-cyan-50 transition-all duration-300;
-    background: rgba(12, 24, 40, 0.72);
-    border: 1px solid rgba(92, 248, 223, 0.12);
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold transition-all duration-300;
+    color: hsl(var(--foreground));
+    background: rgba(218, 155, 40, 0.08);
+    border: 1px solid rgba(218, 155, 40, 0.2);
   }
 
   .btn-secondary:hover {
-    background: rgba(15, 31, 51, 0.95);
-    border-color: rgba(92, 248, 223, 0.28);
+    background: rgba(218, 155, 40, 0.14);
+    border-color: rgba(218, 155, 40, 0.4);
   }
 
   .metric-border {
     background:
-      linear-gradient(180deg, rgba(14, 32, 49, 0.9), rgba(10, 19, 31, 0.94)) padding-box,
-      linear-gradient(135deg, rgba(93, 248, 223, 0.18), rgba(196, 85, 255, 0.16)) border-box;
+      linear-gradient(180deg, rgba(255, 252, 248, 0.94), rgba(255, 250, 244, 0.98)) padding-box,
+      linear-gradient(135deg, rgba(218, 155, 40, 0.16), rgba(52, 211, 153, 0.1)) border-box;
     border: 1px solid transparent;
   }
 
   .surface-muted {
-    background: rgba(10, 20, 33, 0.62);
+    background: rgba(218, 155, 40, 0.06);
   }
 
   .animate-fade-in {
@@ -139,7 +153,7 @@
   }
 
   .scrollbar-subtle {
-    scrollbar-color: rgba(100, 245, 227, 0.35) transparent;
+    scrollbar-color: rgba(218, 165, 70, 0.3) transparent;
   }
 }
 

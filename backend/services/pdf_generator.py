@@ -86,6 +86,7 @@ def generate_pdf_report(results: dict, explanation: dict) -> bytes:
         PDF content as bytes.
     """
     from jinja2 import Environment, FileSystemLoader, select_autoescape
+    from services.compliance_mapper import map_to_regulations
 
     # Build SHAP SVG
     shap_svg = _build_shap_svg(
@@ -137,6 +138,8 @@ def generate_pdf_report(results: dict, explanation: dict) -> bytes:
         autoescape=select_autoescape(["html"]),
     )
     template = env.get_template("report.html")
+    
+    compliance_violations = map_to_regulations(results.get("metrics", {}))
 
     html_string = template.render(
         results=results,
@@ -145,6 +148,7 @@ def generate_pdf_report(results: dict, explanation: dict) -> bytes:
         severity_color=severity_color,
         metrics_enriched=metrics_enriched,
         remediation_rows=remediation_rows,
+        compliance_violations=compliance_violations,
         accuracy_before=reweighing.get("accuracy_before", 0),
         accuracy_after=reweighing.get("accuracy_after", 0),
         accuracy_delta=reweighing.get("accuracy_delta", 0),
@@ -213,6 +217,16 @@ def _generate_reportlab_fallback(results: dict, explanation: dict) -> bytes:
             ))
         
         story.append(Spacer(1, 0.2*inch))
+        
+        # Compliance
+        from services.compliance_mapper import map_to_regulations
+        compliance_violations = map_to_regulations(results.get('metrics', {}))
+        if compliance_violations:
+            story.append(Paragraph("Regulatory Compliance Mapping:", styles['Heading2']))
+            for v in compliance_violations:
+                text = f"â€¢ <b>{v['metric']}:</b> {v.get('metric_value', 'N/A')} â†’ {v['framework']} ({v['article']}) - {v['severity'].upper()}"
+                story.append(Paragraph(text, styles['Normal']))
+            story.append(Spacer(1, 0.2*inch))
         
         # Explanation
         if explanation:

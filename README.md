@@ -1,77 +1,119 @@
-# FairLens
+<div align="center">
+  <h1>🔍 FairLens</h1>
+  <p><strong>The compliance layer for Machine Learning models.</strong></p>
+  <p>Every model that goes to production today is one bad prediction away from a lawsuit, a headline, and a regulator. FairLens catches discriminatory biases in 60 seconds.</p>
+</div>
 
-AI-powered bias detection and remediation platform for ML models.
+<br />
 
-## Project Structure
+FairLens is an industry-grade ML auditing platform designed to detect bias, measure severity, and dynamically generate remediation action plans so your data science team can safely ship compliant models.
 
+## 🌟 Key Features
+
+* **Instant Bias Auditing**: Upload your dataset and model, and FairLens calculates Disparate Impact, Demographic Parity, Equalized Odds, and Calibration Difference instantly.
+* **FairLens Score**: A unified 0-100 score summarizing the ethical posture of the model, easily understandable for non-technical leadership.
+* **Regulatory Compliance Mapping**: Automatically maps failed mathematical metrics directly to legal frameworks such as the **EU AI Act**, **US EEOC 80% Rule**, and **ECOA**.
+* **Individual Prediction Explainer**: Enter a single row of data to see exactly why a protected applicant was accepted/denied, leveraging SHAP waterfalls and automated counterfactual testing ("What if they were Male?").
+* **Side-by-Side Model Comparison**: Compare a baseline model against a remediated model to prove quantifiable fairness improvements over time.
+* **Conversational AI Analysis**: Powered by Google Gemini, the platform provides plain-english insight into the underlying causes of the bias and offers a 5-step concrete remediation plan.
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    User([Compliance Officer]) -->|Uploads CSV + Model| UI(Next.js Frontend)
+    UI -->|Multipart POST| API(FastAPI Backend)
+
+    subgraph "Local Analytics Engine"
+        API --> Validator[Dataset Validator]
+        Validator --> Inference[Model Inference]
+        Inference --> Bias[Math Bias Engine]
+        Inference --> SHAP[SHAP Explainer]
+        Bias --> Score[FairLens Scorer]
+        Bias --> Compliance[Compliance Mapper]
+    end
+
+    Score --> Gemini[Google Gemini API]
+    Compliance --> Gemini
+    Gemini -->|Generates Plain English & Action Plan| API
+    
+    API --> PDF[PDF Report Generator]
+    PDF --> UI
 ```
-fairlens/
-├── backend/          # FastAPI backend — deployable on Google Cloud Run
-├── frontend/         # Next.js frontend
-├── test_data/        # Sample datasets and model training scripts
-└── docs/             # API contract and reference artifacts
-    ├── CONTRACT.md
-    └── artifacts/    # Sample results and test outputs from development
-```
 
-## Running Locally
+---
 
-### Backend
+## 🚀 How to Run Locally
+
+You do not need an active Google Cloud Platform (GCP) project to test FairLens locally. Everything processes right on your machine!
+
+### 1. Start the Backend (FastAPI)
 ```bash
 cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
-# API available at http://localhost:8000
-# Docs at http://localhost:8000/docs
-```
+python -m venv venv
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
-### Frontend
+# Install dependencies including dev testing tools
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Start the API
+uvicorn main:app --reload --port 8000
+```
+*The API is now running at `http://localhost:8000` with interactive docs at `/docs`.*
+
+### 2. Start the Frontend (Next.js)
+Open a new terminal tab:
 ```bash
 cd frontend
 npm install
 npm run dev
-# Open http://localhost:3000
 ```
+*The Dashboard is now live at `http://localhost:3000`.*
 
-Create `frontend/.env.local`:
-```
-NEXT_PUBLIC_USE_MOCK=false
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-```
+---
 
-Or point it at the deployed backend:
-```
-NEXT_PUBLIC_USE_MOCK=false
-NEXT_PUBLIC_API_URL=<your-cloud-run-url>/api/v1
-```
+## 🎭 Demo Instructions
 
-## Deploying to Google Cloud Run
+FairLens comes pre-baked with three notorious ML bias scenarios. To experience a 60-second end-to-end demo:
+
+1. Open `http://localhost:3000`.
+2. Scroll to the **"Try a pre-trained scenario"** section on the landing page.
+3. Click the **"COMPAS (Criminal Justice)"** button.
+4. Watch the pipeline extract the dataset, compute the bias, and finalize the report.
+5. In the results dashboard, explore:
+   - The **FairLens Score**.
+   - The **Compare Models** page (link at the top of history).
+   - Try the **AI Follow-up Question** input.
+   - Click **Export PDF Report** to view the regulatory compliance mapper output.
+
+---
+
+## 🔌 API Endpoints
+Below are the primary non-ingestion API surfaces.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/v1/analyze` | `POST` | Kicks off the core bias analytics engine against uploaded configurations. |
+| `/api/v1/history` | `GET` | Lists all historical audits sorted by completion date. |
+| `/api/v1/results/{job_id}` | `GET` | Fetches the full JSON payload containing math metrics and model stats. |
+| `/api/v1/explain` | `POST` | Triggers the Gemini analysis stream and SHAP PDF synthesis. |
+| `/api/v1/explain/individual` | `POST` | Accepts a single JSON row, runs local Python inference, and returns SHAP/counterfactual insight. |
+| `/api/v1/ask` | `POST` | Multiturn Q&A using Gemini contextualized strictly on the generated audit report. |
+
+---
+
+## 🧪 Local Test Suite
+
+We use `pytest` to mathematically enforce the validity of our fairness engine (Disparate Impact constraints and Equalized odds parity).
 
 ```bash
 cd backend
-gcloud builds submit --tag us-central1-docker.pkg.dev/<your-project-id>/fairlens/fairlens-api .
-
-gcloud run deploy fairlens-api \
-  --image us-central1-docker.pkg.dev/<your-project-id>/fairlens/fairlens-api \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars "USE_LOCAL_STORAGE=false,GCP_PROJECT_ID=<your-project-id>,GCS_UPLOAD_BUCKET=<your-upload-bucket>,GCS_RESULTS_BUCKET=<your-results-bucket>,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-pro"
+pytest tests/ -v
 ```
 
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `USE_LOCAL_STORAGE` | `true` for local disk, `false` for GCS |
-| `USE_MOCK_PIPELINE` | `true` to skip real bias analysis |
-| `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCS_UPLOAD_BUCKET` | GCS bucket for uploaded files |
-| `GCS_RESULTS_BUCKET` | GCS bucket for analysis results |
-| `VERTEX_AI_LOCATION` | e.g. `us-central1` |
-| `GEMINI_MODEL` | e.g. `gemini-1.5-pro` |
-
-## API Reference
-
-Full API docs available at `/docs` when the backend is running.  
-See `docs/CONTRACT.md` for the complete data contract.
+---
+*Built for the 2026 AI Ethics Hackathon.*

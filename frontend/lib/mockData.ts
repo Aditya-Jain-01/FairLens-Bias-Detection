@@ -60,6 +60,17 @@ export const mockResults: Results = {
   overall_severity: "high",
   metrics_passed: 1,
   metrics_failed: 3,
+  fairness_score: {
+    score: 42.5,
+    grade: "C",
+    breakdown: {
+      disparate_impact_contribution: 18.6,
+      demographic_parity_contribution: 8.9,
+      equalized_odds_contribution: 13.2,
+      calibration_contribution: 0,
+      shap_leakage_contribution: 1.8,
+    }
+  },
   shap: {
     top_features: [
       { feature: "capital_gain", importance: 0.312, direction: "positive" },

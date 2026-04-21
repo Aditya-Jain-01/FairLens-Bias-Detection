@@ -89,53 +89,53 @@ export const ThresholdSimulator = ({
   return (
     <div className="panel-soft p-8">
       <div className="mb-8">
-        <h3 className="mb-2 text-xl font-bold text-white">Threshold Calibrator</h3>
-        <p className="text-sm text-cyan-50/55">
+        <h3 className="mb-2 text-xl font-bold text-neutral-900">Threshold Calibrator</h3>
+        <p className="text-sm text-neutral-600">
           Fine-tune the decision threshold to balance model accuracy against demographic parity.
         </p>
-        {hasError && <p className="mt-2 text-xs text-amber-200">Using fallback threshold data while the API is unavailable.</p>}
+        {hasError && <p className="mt-2 text-xs text-amber-700">Using fallback threshold data while the API is unavailable.</p>}
       </div>
 
       {data.length === 0 && !loading ? (
-        <div className="flex h-64 w-full items-center justify-center rounded-[24px] border border-dashed border-cyan-400/15 bg-cyan-400/5">
-          <p className="text-cyan-100/45">Loading threshold data...</p>
+        <div className="flex h-64 w-full items-center justify-center rounded-[24px] border border-dashed border-neutral-200 bg-neutral-50">
+          <p className="text-neutral-500">Loading threshold data...</p>
         </div>
       ) : (
         <div className="mb-8 h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(160,255,243,0.08)" />
-              <XAxis dataKey="threshold" type="number" domain={[0.1, 0.9]} tickCount={9} stroke="rgba(212,255,249,0.5)" />
-              <YAxis yAxisId="left" domain={[0, 1]} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} stroke="rgba(212,255,249,0.5)" />
-              <YAxis yAxisId="right" orientation="right" domain={[0, 0.5]} stroke="rgba(212,255,249,0.5)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+              <XAxis dataKey="threshold" type="number" domain={[0.1, 0.9]} tickCount={9} stroke="#a3a3a3" />
+              <YAxis yAxisId="left" domain={[0, 1]} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} stroke="#a3a3a3" />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 0.5]} stroke="#a3a3a3" />
               <Tooltip
                 contentStyle={{
-                  background: "rgba(8, 18, 31, 0.96)",
-                  border: "1px solid rgba(104, 246, 232, 0.18)",
+                  background: "#ffffff",
+                  border: "1px solid #e5e5e5",
                   borderRadius: "18px",
-                  color: "#eafffb",
+                  color: "#171717",
                 }}
               />
-              <Legend wrapperStyle={{ color: "rgba(232,255,251,0.72)" }} />
+              <Legend wrapperStyle={{ color: "#404040" }} />
               <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#62f4d5" strokeWidth={3} name="Accuracy" dot={{ r: 3, fill: "#62f4d5" }} />
               <Line yAxisId="right" type="monotone" dataKey="disparity" stroke="#cb58ff" strokeWidth={3} name="Demographic Disparity" dot={{ r: 3, fill: "#cb58ff" }} />
               <ReferenceLine
                 x={threshold}
-                stroke="#f3f7ff"
+                stroke="#a3a3a3"
                 strokeWidth={1.5}
                 strokeDasharray="3 3"
                 yAxisId="left"
-                label={{ position: "top", value: "Current", fill: "#cffff8" }}
+                label={{ position: "top", value: "Current", fill: "#525252" }}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      <div className="surface-muted mb-6 rounded-[24px] border border-cyan-400/10 p-6">
+      <div className="surface-muted mb-6 rounded-[24px] border border-neutral-200 p-6">
         <div className="mb-4 flex justify-between">
-          <span className="font-semibold text-cyan-50">Set Decision Threshold</span>
-          <span className="rounded-full bg-cyan-300/12 px-3 py-1 font-bold text-cyan-200">{threshold.toFixed(2)}</span>
+          <span className="font-semibold text-neutral-900">Set Decision Threshold</span>
+          <span className="rounded-full bg-cyan-100 px-3 py-1 font-bold text-cyan-700">{threshold.toFixed(2)}</span>
         </div>
         <input
           type="range"
@@ -144,19 +144,19 @@ export const ThresholdSimulator = ({
           step="0.05"
           value={threshold}
           onChange={(e) => setThreshold(parseFloat(e.target.value))}
-          className="h-2 w-full cursor-pointer appearance-none rounded-lg accent-cyan-300"
+          className="h-2 w-full cursor-pointer appearance-none rounded-lg accent-cyan-600"
         />
       </div>
 
       {activePoint && (
         <div className="grid grid-cols-2 gap-4">
           <div className="metric-border rounded-[24px] p-4">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-cyan-100/42">Projected Accuracy</div>
-            <div className="text-2xl font-bold text-cyan-200">{(activePoint.accuracy * 100).toFixed(1)}%</div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Projected Accuracy</div>
+            <div className="text-2xl font-bold text-cyan-700">{(activePoint.accuracy * 100).toFixed(1)}%</div>
           </div>
           <div className="metric-border rounded-[24px] p-4">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-cyan-100/42">Projected Disparity</div>
-            <div className="text-2xl font-bold text-fuchsia-200">{(activePoint.disparity * 100).toFixed(1)}%</div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Projected Disparity</div>
+            <div className="text-2xl font-bold text-fuchsia-700">{(activePoint.disparity * 100).toFixed(1)}%</div>
           </div>
         </div>
       )}

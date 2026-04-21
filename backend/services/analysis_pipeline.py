@@ -158,11 +158,15 @@ def run_full_analysis(job_id: str) -> dict:
 
     set_status(job_id, "computing_metrics", "Assembling results.json...", progress=95)
 
+    from ml.fairness_score import compute_fairness_score
+    fairness_score = compute_fairness_score(bias_result.get("metrics", {}), shap_block)
+
     # ── Assemble full results.json
     results = {
         **bias_result,
         "shap": shap_block,
         "remediation": remediation_block,
+        "fairness_score": fairness_score,
     }
 
     # Write to storage

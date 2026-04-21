@@ -59,7 +59,7 @@ export default function LoadingPage({ params }: { params: { job_id: string } }) 
   if (status?.error) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center animate-fade-in">
-        <div className="max-w-lg rounded-[28px] border border-rose-400/25 bg-rose-500/10 p-8 text-center text-rose-100 shadow-lg">
+        <div className="max-w-lg rounded-[28px] border border-rose-600/25 bg-rose-500/10 p-8 text-center text-rose-900 shadow-lg">
           <h2 className="mb-2 text-2xl font-bold">Audit Failed</h2>
           <p>{status.error || status.message}</p>
           <button onClick={() => router.push("/upload")} className="mt-6 rounded-2xl bg-rose-500 px-6 py-3 font-semibold text-white">
@@ -86,12 +86,12 @@ export default function LoadingPage({ params }: { params: { job_id: string } }) 
           <div className="relative mb-4 inline-block">
             <div className="absolute inset-0 rounded-full bg-cyan-400/25 blur-xl animate-pulse" />
             <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/15 bg-cyan-400/8 shadow-sm">
-              <Loader2 className="h-8 w-8 animate-spin text-cyan-300" />
+              <Loader2 className="h-8 w-8 animate-spin text-cyan-700" />
             </div>
           </div>
-          <div className="text-xs uppercase tracking-[0.3em] text-cyan-100/40">Pipeline status</div>
-          <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-bold text-white">Processing Audit</h1>
-          <p className="mt-2 text-sm text-cyan-50/60">{status?.message || "Initializing pipeline..."}</p>
+          <div className="text-xs uppercase tracking-[0.3em] text-cyan-700">Pipeline status</div>
+          <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-bold text-neutral-900">Processing Audit</h1>
+          <p className="mt-2 text-sm text-neutral-600">{status?.message || "Initializing pipeline..."}</p>
         </div>
 
         <div className="space-y-5 pl-1">
@@ -104,21 +104,21 @@ export default function LoadingPage({ params }: { params: { job_id: string } }) 
                 key={step.id}
                 className={`rounded-2xl border px-4 py-4 transition-all duration-300 ${
                   isCurrent
-                    ? "scale-[1.01] border-cyan-300/20 bg-cyan-400/8 opacity-100"
+                    ? "scale-[1.01] border-cyan-300 bg-cyan-50"
                     : isCompleted
-                      ? "border-emerald-300/10 bg-emerald-400/5 opacity-75"
-                      : "border-cyan-400/8 bg-slate-950/20 opacity-45"
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-neutral-200 bg-neutral-50"
                 }`}
               >
                 <div className="flex items-center gap-4">
                   {isCompleted ? (
-                    <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" />
+                    <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" />
                   ) : isCurrent ? (
-                    <Loader2 className="h-6 w-6 shrink-0 animate-spin text-cyan-300" />
+                    <Loader2 className="h-6 w-6 shrink-0 animate-spin text-cyan-600" />
                   ) : (
-                    <CircleDashed className="h-6 w-6 shrink-0 text-cyan-50/35" />
+                    <CircleDashed className="h-6 w-6 shrink-0 text-neutral-400" />
                   )}
-                  <span className={`${isCurrent ? "font-bold text-cyan-100" : "text-cyan-50/70"} font-medium`}>
+                  <span className={`${isCurrent ? "text-neutral-900 font-medium" : isCompleted ? "text-emerald-700 font-medium" : "text-neutral-500"}`}>
                     {step.label}
                   </span>
                 </div>
