@@ -95,27 +95,27 @@ export default function UploadPage() {
       <div className="panel mb-8 overflow-hidden px-6 py-8 sm:px-8">
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <div className="inline-flex rounded-full border border-cyan-400/15 bg-cyan-400/8 px-4 py-2 text-xs uppercase tracking-[0.26em] text-cyan-200">
+            <div className="inline-flex rounded-full border border-amber-600/15 bg-amber-500/10 px-4 py-2 text-xs uppercase tracking-[0.26em] text-[#d97706]">
               Configure Audit
             </div>
-            <h1 className="mt-5 font-[family-name:var(--font-display)] text-4xl font-bold text-white sm:text-5xl">
+            <h1 className="mt-5 font-[family-name:var(--font-display)] text-4xl font-bold text-amber-950 sm:text-5xl">
               Upload assets and map your protected features
             </h1>
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-cyan-50/62">
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-amber-900/70">
               The pipeline stays the same. We are improving readability, guidance, and hosted usability while keeping your backend flow intact.
             </p>
           </div>
 
           <div className="panel-soft p-5">
-            <div className="text-xs uppercase tracking-[0.26em] text-cyan-100/40">Audit readiness</div>
+            <div className="text-xs uppercase tracking-[0.26em] text-amber-900/50">Audit readiness</div>
             <div className="mt-4 grid gap-3">
               {[
                 ["Dataset", csvFile?.name || "Required CSV pending"],
                 ["Model", modelFile?.name || "Optional artifact"],
                 ["Configuration", targetColumn ? "Mapped" : "Not mapped yet"],
               ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between rounded-2xl border border-cyan-400/10 bg-cyan-400/5 px-4 py-3">
-                  <span className="text-sm text-cyan-50/55">{label}</span>
+                <div key={label} className="flex items-center justify-between rounded-2xl border border-amber-600/10 bg-amber-500/5 px-4 py-3">
+                  <span className="text-sm text-amber-900/60">{label}</span>
                   <span className="max-w-[60%] truncate text-sm font-medium text-cyan-100">{value}</span>
                 </div>
               ))}
@@ -134,7 +134,7 @@ export default function UploadPage() {
         <div className="animate-slide-up space-y-8">
           <div className="grid gap-8 md:grid-cols-2">
             <div>
-              <h2 className="mb-4 text-xl font-bold text-white">1. Training Data</h2>
+              <h2 className="mb-4 text-xl font-bold text-amber-950">1. Training Data</h2>
               <DropZone
                 label="Upload Data (.csv)"
                 accept=".csv"
@@ -144,7 +144,7 @@ export default function UploadPage() {
             </div>
 
             <div className={`transition-opacity duration-300 ${!jobId ? "pointer-events-none opacity-50" : "opacity-100"}`}>
-              <h2 className="mb-4 text-xl font-bold text-white">2. Model Artifact</h2>
+              <h2 className="mb-4 text-xl font-bold text-amber-950">2. Model Artifact</h2>
               <DropZone
                 label="Upload Model (.pkl / .onnx)"
                 accept=".pkl,.onnx"
@@ -156,8 +156,8 @@ export default function UploadPage() {
 
           <div className="panel-soft flex items-center justify-between p-5">
             <div>
-              <div className="text-sm font-semibold text-white">Step 1 of 2</div>
-              <div className="text-sm text-cyan-50/55">Upload a CSV first. Model upload stays optional.</div>
+              <div className="text-sm font-semibold text-amber-950">Step 1 of 2</div>
+              <div className="text-sm text-amber-900/60">Upload a CSV first. Model upload stays optional.</div>
             </div>
             <button
               onClick={() => setStep(2)}
@@ -174,8 +174,8 @@ export default function UploadPage() {
       {step === 2 && (
         <div className="animate-slide-up">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Map Variables</h2>
-            <button onClick={() => setStep(1)} className="text-sm text-cyan-200/75 transition hover:text-cyan-100">
+            <h2 className="text-xl font-bold text-amber-950">Map Variables</h2>
+            <button onClick={() => setStep(1)} className="text-sm text-[#d97706]/75 transition hover:text-cyan-100">
               Back to uploads
             </button>
           </div>
@@ -190,8 +190,8 @@ export default function UploadPage() {
 
           <div className="panel-soft mt-12 flex items-center justify-between gap-4 p-6">
             <div>
-              <div className="text-sm font-semibold text-white">Step 2 of 2</div>
-              <div className="text-sm text-cyan-50/55">Choose one target and at least one protected attribute.</div>
+              <div className="text-sm font-semibold text-amber-950">Step 2 of 2</div>
+              <div className="text-sm text-amber-900/60">Choose one target and at least one protected attribute.</div>
             </div>
             <button
               onClick={submitConfiguration}

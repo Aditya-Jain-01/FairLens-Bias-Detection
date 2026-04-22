@@ -124,6 +124,8 @@ app.include_router(analyze.router,   prefix="/api/v1", tags=["analysis"])
 app.include_router(remediate.router, prefix="/api/v1", tags=["remediation"])
 app.include_router(explain.router,   prefix="/api/v1", tags=["ai"])
 app.include_router(report.router,    prefix="/api/v1", tags=["report"])
+from routers import history
+app.include_router(history.router,   prefix="/api/v1", tags=["history"])
 
 
 # --- Health check (used by Cloud Run to verify the container is alive) ---
@@ -148,3 +150,14 @@ async def root():
         "docs": "/docs",
         "health": "/health",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )

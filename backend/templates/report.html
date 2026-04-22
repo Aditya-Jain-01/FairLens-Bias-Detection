@@ -483,10 +483,44 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════════════════
-     SECTION 9 — RECOMMENDED ACTION
+     SECTION 9 — REGULATORY COMPLIANCE MAPPING
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title"><span class="section-number">9.</span>Regulatory Compliance Mapping</div>
+  {% if compliance_violations %}
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+        <th>Framework</th>
+        <th>Article</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in compliance_violations %}
+      <tr>
+        <td><strong>{{ v.metric }}</strong></td>
+        <td style="color:#b91c1c; font-weight:bold;">{{ "%.3f"|format(v.metric_value) }}</td>
+        <td>{{ v.framework }}</td>
+        <td>{{ v.article }}</td>
+        <td><span class="badge badge-{{ 'fail' if v.severity == 'violation' else 'medium' }}">{{ 'VIOLATION' if v.severity == 'violation' else 'RELEVANT' }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p style="color:#6b7280; font-style:italic;">No detected regulatory violations for the configured frameworks.</p>
+  {% endif %}
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 10 — RECOMMENDED ACTION
      ═══════════════════════════════════════════════════════════════════════ -->
 <div class="section no-break">
-  <div class="section-title"><span class="section-number">9.</span>Recommended Action</div>
+  <div class="section-title"><span class="section-number">10.</span>Recommended Action</div>
   <div class="recommended-box">
     <div class="recommended-title">
       Recommended fix: {{ explanation.recommended_fix.replace("_", " ").title() }}

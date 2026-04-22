@@ -53,6 +53,11 @@ export interface Results {
   overall_severity: "high" | "medium" | "low" | "none"
   metrics_passed: number
   metrics_failed: number
+  fairness_score?: {
+    score: number
+    grade: string
+    breakdown: Record<string, number>
+  }
   shap: {
     top_features: Array<{
       feature: string

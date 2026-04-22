@@ -97,7 +97,7 @@ def build_followup_prompt(results: dict, explanation: dict, question: str) -> li
     """
     Builds a multi-turn conversation for the Q&A endpoint.
     Called by explain.py for POST /ask requests.
-    Returns a messages list ready to pass to Vertex AI.
+    Returns a messages list ready to pass to Gemini.
     """
     context = f"""
 You are FairLens AI. The user has just received a bias audit for their ML model.
@@ -114,13 +114,28 @@ YOUR PREVIOUS EXPLANATION:
 Answer the user's follow-up question in plain English. Be specific and cite
 numbers from the audit results. Keep your answer to 3-5 sentences maximum.
 If the question is outside the scope of this audit, politely redirect.
+Do NOT return JSON. Respond conversationally as a helpful AI assistant.
 """.strip()
 
     return [
         {"role": "user", "parts": [{"text": context}]},
-        {"role": "model", "parts": [{"text": "Understood. I have the full audit context and am ready to answer follow-up questions."}]},
+        {"role": "model", "parts": [{"text": "Understood. I have the full audit context and am ready to answer follow-up questions in plain English."}]},
         {"role": "user", "parts": [{"text": question}]},
     ]
+
+
+# Separate system prompt for conversational Q&A — must NOT request JSON output.
+QA_SYSTEM_PROMPT = """
+You are FairLens AI, a helpful and conversational bias audit assistant.
+The user is asking follow-up questions about their ML model's fairness audit.
+
+Rules:
+- Answer in plain, conversational English. Do NOT output JSON.
+- Be specific: cite numbers, metric names, and group names from the audit.
+- Keep answers to 3-5 sentences unless the user asks you to elaborate.
+- If greeted casually (e.g. "hello", "hi"), respond warmly and offer to help.
+- If the question is unrelated to the audit, politely redirect.
+""".strip()
 
 
 # --- How to call this from explain.py ---

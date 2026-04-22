@@ -152,3 +152,19 @@ def get_local_file_path(job_id: str, filename: str, bucket: str = "uploads") -> 
         gcs_bucket = UPLOAD_BUCKET if bucket == "uploads" else RESULTS_BUCKET
         _gcs_download_blob(gcs_bucket, f"{job_id}/{filename}", tmp)
         return tmp
+
+
+def list_jobs(bucket: str = "results") -> list:
+    """List all job_id directories in the given bucket."""
+    if USE_LOCAL:
+        target_dir = LOCAL_RESULTS_DIR if bucket == "results" else LOCAL_UPLOAD_DIR
+        if not target_dir.exists():
+            return []
+        return [d.name for d in target_dir.iterdir() if d.is_dir()]
+    else:
+        # GCP fallback (not required for local run)
+        gcs_bucket = RESULTS_BUCKET if bucket == "results" else UPLOAD_BUCKET
+        client = _gcs_client()
+        blobs = client.list_blobs(gcs_bucket)
+        prefixes = set(b.name.split("/")[0] for b in blobs if "/" in b.name)
+        return list(prefixes)

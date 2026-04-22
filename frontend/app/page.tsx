@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ArrowRight, FileSpreadsheet, ShieldCheck, SlidersHorizontal } from "lucide-react";
-import { pollStatus } from "@/lib/api";
+import { Activity, ArrowRight, FileSpreadsheet, ShieldCheck, SlidersHorizontal, Loader2 } from "lucide-react";
+import { pollStatus, configureJob } from "@/lib/api";
 import { RecentJobRecord, getRecentJobs, saveRecentJobs, upsertRecentJob } from "@/lib/recentJobs";
 
 const workflow = [
@@ -38,7 +39,7 @@ const capabilityCards = [
     title: "PDF Export",
     description: "Generate hosted-friendly compliance reports.",
     icon: FileSpreadsheet,
-    color: "text-cyan-300",
+    color: "text-cyan-700",
   },
 ];
 
@@ -57,8 +58,35 @@ function getJobHref(job: RecentJobRecord) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<RecentJobRecord[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+
+  const handleDemo = async (
+    jobId: string,
+    targetCol: string,
+    protectedAttrs: string[]
+  ) => {
+    setDemoLoading(jobId);
+    try {
+      await configureJob(jobId, targetCol, protectedAttrs, 1);
+      upsertRecentJob({
+        job_id: jobId,
+        label: `Demo: ${jobId.replace("demo-", "").toUpperCase()}`,
+        stage: "configuring",
+        progress: 10,
+        message: "Demo audit queued.",
+        target_column: targetCol,
+        protected_attributes: protectedAttrs,
+        updated_at: new Date().toISOString(),
+      });
+      router.push(`/loading/${jobId}`);
+    } catch (e) {
+      console.error("Demo failed to start", e);
+      setDemoLoading(null);
+    }
+  };
 
   useEffect(() => {
     const initialJobs = getRecentJobs();
@@ -135,35 +163,56 @@ export default function Home() {
       <section className="panel px-6 py-8 sm:px-8">
         <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/12 bg-cyan-400/8 px-4 py-2 text-xs uppercase tracking-[0.24em] text-cyan-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-100 px-4 py-2 text-xs uppercase tracking-[0.24em] text-cyan-700">
               Fairness Audit Workspace
             </div>
 
             <div className="space-y-4">
-              <h1 className="max-w-4xl font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight text-white sm:text-5xl">
+              <h1 className="max-w-4xl font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight text-amber-950 sm:text-5xl">
                 Bias review, remediation, and export in one operational dashboard.
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-cyan-50/62">
+              <p className="max-w-2xl text-lg leading-8 text-amber-900/80">
                 FairLens now reflects the audits you actually run in this browser session, so the homepage behaves like a working workspace instead of a static showcase.
               </p>
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="flex flex-wrap gap-4">
               <Link href="/upload" className="btn-primary px-7 py-4 text-base">
                 Start audit
                 <ArrowRight className="h-5 w-5" />
               </Link>
-              <Link href="/results/demo" className="btn-secondary px-7 py-4 text-base">
-                Open demo results
-              </Link>
+              <button 
+                onClick={() => handleDemo("demo-compas", "two_year_recid", ["race", "sex"])} 
+                disabled={!!demoLoading}
+                className="btn-secondary px-7 py-4 text-base disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {demoLoading === "demo-compas" ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                COMPAS Demo
+              </button>
+              <button 
+                onClick={() => handleDemo("demo-german", "credit_risk", ["age_group", "sex"])} 
+                disabled={!!demoLoading}
+                className="btn-secondary px-7 py-4 text-base disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {demoLoading === "demo-german" ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                German Credit
+              </button>
+              <button 
+                onClick={() => handleDemo("demo-hmda", "loan_approved", ["applicant_race", "applicant_sex"])} 
+                disabled={!!demoLoading}
+                className="btn-secondary px-7 py-4 text-base disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {demoLoading === "demo-hmda" ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                Mortgage Demo
+              </button>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               {topMetrics.map((metric) => (
                 <div key={metric.label} className="metric-border rounded-3xl p-5">
-                  <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">{metric.label}</div>
-                  <div className="mt-3 text-4xl font-bold text-cyan-200">{metric.value}</div>
-                  <div className="mt-2 text-sm text-cyan-50/52">{metric.detail}</div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-amber-900/50">{metric.label}</div>
+                  <div className="mt-3 text-4xl font-bold text-amber-600">{metric.value}</div>
+                  <div className="mt-2 text-sm text-amber-900/60">{metric.detail}</div>
                 </div>
               ))}
             </div>
@@ -172,12 +221,12 @@ export default function Home() {
           <div className="panel-soft p-6">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">System view</div>
-                <div className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-white">
+                <div className="text-xs uppercase tracking-[0.24em] text-amber-900/50">System view</div>
+                <div className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-amber-950">
                   Audit Queue
                 </div>
               </div>
-              <div className="rounded-full border border-cyan-400/12 bg-cyan-400/6 px-3 py-1 text-sm text-cyan-200">
+              <div className="rounded-full border border-amber-600/20 bg-amber-500/10 px-3 py-1 text-sm text-amber-700">
                 {queueJob ? formatStatus(queueJob.stage) : "Idle"}
               </div>
             </div>
@@ -188,23 +237,23 @@ export default function Home() {
                   <>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-white">{queueJob.label}</div>
-                        <div className="mt-1 text-sm text-cyan-50/52">{queueJob.message}</div>
+                        <div className="text-sm font-semibold text-amber-950">{queueJob.label}</div>
+                        <div className="mt-1 text-sm text-amber-900/60">{queueJob.message}</div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Link href={getJobHref(queueJob)} className="text-xs font-medium text-cyan-200 transition hover:text-cyan-100">
+                        <Link href={getJobHref(queueJob)} className="text-xs font-medium text-amber-700 transition hover:text-amber-800">
                           Open
                         </Link>
-                        <Activity className="h-5 w-5 text-cyan-300" />
+                        <Activity className="h-5 w-5 text-amber-600" />
                       </div>
                     </div>
-                    <div className="mt-4 h-2 rounded-full bg-cyan-950/65">
+                    <div className="mt-4 h-2 rounded-full bg-amber-500/10">
                       <div
-                        className="h-2 rounded-full bg-gradient-to-r from-cyan-300 to-teal-400 transition-all"
+                        className="h-2 rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all"
                         style={{ width: `${Math.max(queueJob.progress, 6)}%` }}
                       />
                     </div>
-                    <div className="mt-3 flex justify-between text-xs text-cyan-100/42">
+                    <div className="mt-3 flex justify-between text-xs text-amber-900/60">
                       <span>Stage: {formatStage(queueJob.stage)}</span>
                       <span>{queueJob.progress}%</span>
                     </div>
@@ -213,13 +262,13 @@ export default function Home() {
                   <>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-white">No recent audit loaded</div>
-                        <div className="mt-1 text-sm text-cyan-50/52">Start a new audit to populate the queue with real job status.</div>
+                        <div className="text-sm font-semibold text-amber-950">No recent audit loaded</div>
+                        <div className="mt-1 text-sm text-amber-900/60">Start a new audit to populate the queue with real job status.</div>
                       </div>
-                      <Activity className="h-5 w-5 text-cyan-300" />
+                      <Activity className="h-5 w-5 text-amber-500" />
                     </div>
-                    <div className="mt-4 h-2 rounded-full bg-cyan-950/65" />
-                    <div className="mt-3 flex justify-between text-xs text-cyan-100/42">
+                    <div className="mt-4 h-2 rounded-full bg-amber-500/10" />
+                    <div className="mt-3 flex justify-between text-xs text-amber-900/60">
                       <span>Stage: idle</span>
                       <span>0%</span>
                     </div>
@@ -231,8 +280,8 @@ export default function Home() {
                 {capabilityCards.map((card) => (
                   <div key={card.title} className="metric-border rounded-3xl p-5">
                     <card.icon className={`h-5 w-5 ${card.color}`} />
-                    <div className="mt-4 text-lg font-semibold text-white">{card.title}</div>
-                    <div className="mt-2 text-sm text-cyan-50/52">{card.description}</div>
+                    <div className="mt-4 text-lg font-semibold text-amber-950">{card.title}</div>
+                    <div className="mt-2 text-sm text-amber-900/70">{card.description}</div>
                   </div>
                 ))}
               </div>
@@ -243,18 +292,18 @@ export default function Home() {
 
       <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="panel-soft p-6 sm:p-8">
-          <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">Workflow</div>
-          <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-white">
+          <div className="text-xs uppercase tracking-[0.24em] text-amber-900/50">Workflow</div>
+          <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-amber-950">
             How teams use this
           </h2>
           <div className="mt-6 space-y-4">
             {workflow.map((item, index) => (
               <div key={item.title} className="metric-border rounded-3xl p-5">
-                <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">
+                <div className="text-xs uppercase tracking-[0.24em] text-amber-900/50">
                   Step {index + 1}
                 </div>
-                <div className="mt-2 text-lg font-semibold text-white">{item.title}</div>
-                <div className="mt-2 text-sm leading-6 text-cyan-50/55">{item.description}</div>
+                <div className="mt-2 text-lg font-semibold text-amber-950">{item.title}</div>
+                <div className="mt-2 text-sm leading-6 text-amber-900/70">{item.description}</div>
               </div>
             ))}
           </div>
@@ -263,8 +312,8 @@ export default function Home() {
         <div className="panel-soft p-6 sm:p-8">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">Workspace state</div>
-              <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-white">
+              <div className="text-xs uppercase tracking-[0.24em] text-amber-900/50">Workspace state</div>
+              <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-amber-950">
                 Current focus
               </h2>
             </div>
@@ -273,8 +322,8 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-3xl border border-cyan-400/10">
-            <div className="grid grid-cols-[1.3fr_0.8fr_0.8fr] bg-cyan-400/6 px-5 py-4 text-xs uppercase tracking-[0.22em] text-cyan-100/40">
+          <div className="mt-6 overflow-hidden rounded-3xl border border-amber-600/10">
+            <div className="grid grid-cols-[1.3fr_0.8fr_0.8fr] bg-amber-500/5 px-5 py-4 text-xs uppercase tracking-[0.22em] text-amber-900/50">
               <div>Audit</div>
               <div>Status</div>
               <div>Scope</div>
@@ -285,15 +334,15 @@ export default function Home() {
                 <Link
                   key={job.job_id}
                   href={getJobHref(job)}
-                  className="grid grid-cols-[1.3fr_0.8fr_0.8fr] border-t border-cyan-400/8 px-5 py-4 text-sm text-cyan-50/72 transition hover:bg-cyan-400/5"
+                  className="grid grid-cols-[1.3fr_0.8fr_0.8fr] border-t border-amber-600/10 px-5 py-4 text-sm text-amber-900/70 transition hover:bg-amber-500/5"
                 >
-                  <div className="font-medium text-white">{job.label}</div>
+                  <div className="font-medium text-amber-950">{job.label}</div>
                   <div>{formatStatus(job.stage)}</div>
                   <div>{job.target_column || "Dataset loaded"}</div>
                 </Link>
               ))
             ) : (
-              <div className="border-t border-cyan-400/8 px-5 py-6 text-sm text-cyan-50/58">
+              <div className="border-t border-amber-600/10 px-5 py-6 text-sm text-amber-900/60">
                 No audits have been run in this browser session yet.
               </div>
             )}

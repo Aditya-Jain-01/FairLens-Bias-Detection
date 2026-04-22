@@ -124,16 +124,30 @@ async def configure_job(req: ConfigureRequest, background_tasks: BackgroundTasks
     Validates configuration and kicks off the analysis pipeline.
     Returns immediately; poll /status/{job_id} for progress.
     """
-    # Special demo job
-    is_demo = req.job_id == "demo"
+    is_legacy_demo = req.job_id == "demo"
+    is_new_demo = req.job_id in ["demo-compas", "demo-german", "demo-hmda"]
+    is_any_demo = is_legacy_demo or is_new_demo
 
-    if not is_demo:
+    if not is_any_demo:
         # Verify CSV was uploaded
         if not storage.file_exists(req.job_id, "data.csv", bucket="uploads"):
             raise HTTPException(
                 status_code=404,
                 detail=f"No CSV found for job_id={req.job_id}. Upload a CSV first.",
             )
+
+        # Validate CSV
+        try:
+            csv_path = storage.get_local_file_path(req.job_id, "data.csv", bucket="uploads")
+            from services.csv_validator import validate_csv
+            validate_csv(str(csv_path), {
+                "target_column": req.target_column,
+                "protected_attributes": req.protected_attributes
+            })
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"CSV validation failed: {str(e)}")
 
     if not req.target_column:
         raise HTTPException(status_code=400, detail="target_column is required.")
@@ -151,14 +165,39 @@ async def configure_job(req: ConfigureRequest, background_tasks: BackgroundTasks
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if is_demo:
+    if is_legacy_demo:
         # Seed demo data and simulate pipeline
         _seed_demo_job()
         background_tasks.add_task(_run_analysis_or_mock, "demo", config)
+    elif is_new_demo:
+        _setup_demo_files(req.job_id)
+        background_tasks.add_task(_run_pipeline, req.job_id, config)
     else:
         background_tasks.add_task(_run_pipeline, req.job_id, config)
 
     return JSONResponse({"job_id": req.job_id, "status": "queued"})
+
+def _setup_demo_files(job_id: str):
+    """Copy demo datasets to the uploads area so the pipeline can run normally."""
+    from pathlib import Path
+    mapping = {
+        "demo-compas": ("compas_encoded.csv", "compas_model.pkl"),
+        "demo-german": ("german_encoded.csv", "german_credit_model.pkl"),
+        "demo-hmda": ("hmda_encoded.csv", "hmda_model.pkl"),
+    }
+    if job_id not in mapping:
+        return
+        
+    csv_file, pkl_file = mapping[job_id]
+    test_data_dir = Path(__file__).resolve().parent.parent.parent / "test_data"
+    
+    csv_src = test_data_dir / csv_file
+    pkl_src = test_data_dir / pkl_file
+    
+    if csv_src.exists():
+        storage.save_upload_file(job_id, "data.csv", csv_src)
+    if pkl_src.exists():
+        storage.save_upload_file(job_id, "model.pkl", pkl_src)
 
 
 def _seed_demo_job():
