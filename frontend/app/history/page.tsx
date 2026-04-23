@@ -95,7 +95,7 @@ export default function HistoryPage() {
                   />
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`${value}/100`, 'FairLens Score']}
+                    formatter={(value: any) => [`${value}/100`, 'FairLens Score']}
                     labelFormatter={(label, payload) => payload[0]?.payload.label || label}
                   />
                   <Line 

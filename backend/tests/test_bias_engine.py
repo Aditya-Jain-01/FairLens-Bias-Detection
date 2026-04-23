@@ -23,7 +23,7 @@ def test_disparate_impact_extreme_bias():
     
     # Run the bias engine treating 'target' as truth, 'pred' as prediction, 'group' as protected attr
     # Let's say positive label is 1
-    results = compute_bias_metrics(df, "target", ["group"], "pred", positive_label=1)
+    results = compute_bias_metrics(df, "target", ["group"], "pred")
     
     di = results["metrics"]["disparate_impact"]["value"]
     
@@ -42,7 +42,7 @@ def test_perfect_fairness():
         "group":  ["Privileged", "Privileged", "Unprivileged", "Unprivileged"]
     })
     
-    results = compute_bias_metrics(df, "target", ["group"], "pred", positive_label=1)
+    results = compute_bias_metrics(df, "target", ["group"], "pred")
     
     # DI should be 1.0 (perfect parity)
     di = results["metrics"]["disparate_impact"]["value"]
@@ -68,7 +68,7 @@ def test_equalized_odds_violation():
         "group":  ["A", "A", "A", "B", "B", "B"]
     })
     
-    results = compute_bias_metrics(df, "target", ["group"], "pred", positive_label=1)
+    results = compute_bias_metrics(df, "target", ["group"], "pred")
     
     # False Positive Rate:
     # Group A: Truth is 0, Pred is 1 (FPR = 3/3 = 1.0)
