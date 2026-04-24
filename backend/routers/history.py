@@ -1,12 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from services import storage
+from services.auth import require_api_key
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/history")
+@router.get("/history", dependencies=[Depends(require_api_key)])
 async def get_history():
     """Returns all completed jobs, newest first."""
     jobs = storage.list_jobs(bucket="results")

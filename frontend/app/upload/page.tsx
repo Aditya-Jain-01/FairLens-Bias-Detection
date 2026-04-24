@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, ShieldAlert, X } from "lucide-react";
 import { DropZone } from "@/components/upload/DropZone";
 import { ColumnPicker } from "@/components/upload/ColumnPicker";
 import { uploadCSV, uploadModel, configureJob } from "@/lib/api";
@@ -21,15 +21,23 @@ export default function UploadPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  const [piiWarning, setPiiWarning] = useState<{column: string; reason: string; risk: string}[]>([]);
+  const [piiDismissed, setPiiDismissed] = useState(false);
 
   const handleCsvUpload = async (file: File) => {
     setCsvFile(file);
     setLoading(true);
     setError("");
+    setPiiWarning([]);
+    setPiiDismissed(false);
     try {
       const res = await uploadCSV(file);
       setJobId(res.job_id);
       setColumns(res.columns);
+      // Surface PII warnings if any columns were flagged
+      if (res.pii_scan?.has_pii) {
+        setPiiWarning(res.pii_scan.flagged_columns);
+      }
       upsertRecentJob({
         job_id: res.job_id,
         label: getJobLabelFromFileName(file.name),
@@ -127,6 +135,50 @@ export default function UploadPage() {
       {error && (
         <div className="mb-8 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 font-medium text-rose-200">
           {error}
+        </div>
+      )}
+
+      {/* PII Warning Banner */}
+      {piiWarning.length > 0 && !piiDismissed && (
+        <div className="mb-8 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+              <div>
+                <p className="font-semibold text-amber-900">
+                  ⚠ Potential PII Detected in Your Dataset
+                </p>
+                <p className="mt-1 text-sm text-amber-800/80">
+                  FairLens detected columns that may contain personal data. Your data is processed
+                  locally and never stored beyond 24 hours. No raw PII is included in the audit report.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {piiWarning.map((col) => (
+                    <span
+                      key={col.column}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                        col.risk === "critical"
+                          ? "bg-rose-100 text-rose-700 border border-rose-200"
+                          : col.risk === "high"
+                          ? "bg-amber-100 text-amber-700 border border-amber-200"
+                          : "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                      }`}
+                    >
+                      <span className="font-mono">{col.column}</span>
+                      <span className="opacity-70">— {col.reason}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setPiiDismissed(true)}
+              className="shrink-0 rounded-lg p-1 text-amber-700 hover:bg-amber-200/40 transition"
+              aria-label="Dismiss PII warning"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
 

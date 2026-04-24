@@ -10,12 +10,16 @@ import uuid
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import pandas as pd
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
 from services import storage
 from services.csv_parser import parse_csv
 from services.status import set_status
+from services.auth import require_api_key
+from services.pii_detector import detect_pii
+from services.audit_logger import log_event
 
 router = APIRouter()
 
@@ -38,7 +42,7 @@ async def _save_temp(upload: UploadFile) -> Path:
 
 # ── POST /upload/csv ──────────────────────────────────────────────────────────
 
-@router.post("/upload/csv")
+@router.post("/upload/csv", dependencies=[Depends(require_api_key)])
 async def upload_csv(file: UploadFile = File(...)):
     """
     Accepts a CSV file.
@@ -67,28 +71,47 @@ async def upload_csv(file: UploadFile = File(...)):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+    # PII detection (scan column names + 5 sample values per column)
+    # Must run BEFORE storage.save_upload_file() which may move the temp file.
+    pii_result = {"has_pii": False, "flagged_columns": []}
+    try:
+        df_sample = pd.read_csv(tmp_path, nrows=5)
+        sample_values = {col: df_sample[col].dropna().tolist() for col in df_sample.columns}
+        pii_result = detect_pii(info["columns"], sample_values)
+    except Exception:
+        pass  # PII detection is best-effort — never block the upload
+
     # Persist to storage
     try:
         storage.save_upload_file(job_id, "data.csv", tmp_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage error: {e}")
 
-    # Set initial status (best-effort — don't fail the upload if this fails)
+    # Set initial status (best-effort)
     try:
         set_status(job_id, "uploading", "CSV uploaded, waiting for configuration.")
     except Exception:
-        pass  # Non-critical — status polling will return a default
+        pass
+
+    # Audit log
+    log_event(job_id, "upload_csv", detail={
+        "filename": file.filename,
+        "row_count": info["row_count"],
+        "columns": len(info["columns"]),
+        "pii_detected": pii_result["has_pii"],
+    })
 
     return JSONResponse({
         "job_id": job_id,
         "columns": info["columns"],
         "row_count": info["row_count"],
+        "pii_scan": pii_result,
     })
 
 
 # ── POST /upload/model ────────────────────────────────────────────────────────
 
-@router.post("/upload/model")
+@router.post("/upload/model", dependencies=[Depends(require_api_key)])
 async def upload_model(
     file: UploadFile = File(...),
     job_id: str = Form(...),

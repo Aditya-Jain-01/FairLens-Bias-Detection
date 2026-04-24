@@ -111,10 +111,20 @@ export interface ThresholdResult {
   latency_ms?: number
 }
 
+export interface PiiScanResult {
+  has_pii: boolean
+  flagged_columns: Array<{
+    column: string
+    reason: string
+    risk: "critical" | "high" | "medium"
+  }>
+}
+
 export interface UploadCSVResponse {
   job_id: string
   columns: string[]
   row_count: number
+  pii_scan?: PiiScanResult
 }
 
 export interface UploadModelResponse {

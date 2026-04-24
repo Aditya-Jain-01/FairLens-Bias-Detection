@@ -16,11 +16,13 @@ The browser receives application/pdf and the PDF downloads normally.
 import logging
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
 
 from services import storage
 from services.status import set_status
+from services.auth import require_api_key
+from services.audit_logger import log_event, read_log
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ router = APIRouter()
 
 # ── GET /report/{job_id}/pdf ──────────────────────────────────────────────────
 
-@router.get("/report/{job_id}/pdf")
+@router.get("/report/{job_id}/pdf", dependencies=[Depends(require_api_key)])
 async def stream_report_pdf(job_id: str):
     """
     Stream the PDF report bytes for a job directly from storage.
@@ -51,6 +53,8 @@ async def stream_report_pdf(job_id: str):
         logger.error(f"Failed to read report.pdf for job {job_id}: {exc}")
         raise HTTPException(status_code=500, detail=f"Could not read report: {exc}")
 
+    log_event(job_id, "report_downloaded")
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -60,7 +64,7 @@ async def stream_report_pdf(job_id: str):
 
 # ── GET /report/{job_id} ──────────────────────────────────────────────────────
 
-@router.get("/report/{job_id}")
+@router.get("/report/{job_id}", dependencies=[Depends(require_api_key)])
 async def get_report(job_id: str):
     """
     Generate (or retrieve cached) PDF audit report.
@@ -126,6 +130,21 @@ async def get_report(job_id: str):
         logger.warning(f"Could not persist report.pdf: {exc}")
 
     set_status(job_id, "complete", "Audit report ready.")
+    log_event(job_id, "report_generated", detail={"size_bytes": len(pdf_bytes)})
 
-    # 6. Return the download URL — frontend opens it in a new tab
+    # 6. Return the download URL
     return {"download_url": download_url}
+
+
+# ── GET /audit-log/{job_id} ───────────────────────────────────────────────────
+
+@router.get("/audit-log/{job_id}", dependencies=[Depends(require_api_key)])
+async def get_audit_log(job_id: str):
+    """
+    GET /api/v1/audit-log/{job_id}
+
+    Returns the full chronological access log for this job.
+    Each entry: {ts, event, job_id, ip, detail}
+    Entries are returned newest-first.
+    """
+    return {"job_id": job_id, "events": read_log(job_id)}

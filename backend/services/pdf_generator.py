@@ -346,6 +346,19 @@ def _generate_rich_report(results: dict, explanation: dict) -> bytes:
     from services.compliance_mapper import map_to_regulations
 
     buffer = io.BytesIO()
+
+    # ── Watermark callback (drawn on every page) ──────────────────────────
+    def _draw_watermark(canvas, doc):
+        """Stamp CONFIDENTIAL diagonally across the page in light gray."""
+        from reportlab.lib.colors import Color
+        canvas.saveState()
+        canvas.setFont("Helvetica-Bold", 52)
+        canvas.setFillColor(Color(0.75, 0.75, 0.75, alpha=0.18))  # very light gray
+        canvas.translate(306, 396)   # centre of letter page (612x792)
+        canvas.rotate(45)
+        canvas.drawCentredString(0, 0, "CONFIDENTIAL")
+        canvas.restoreState()
+
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
         topMargin=0.5 * inch, bottomMargin=0.6 * inch,
@@ -696,8 +709,8 @@ def _generate_rich_report(results: dict, explanation: dict) -> bytes:
         small_style
     ))
 
-    # ── Build Document ────────────────────────────────────────────────────
-    doc.build(story)
+    # ── Build Document (watermark on every page) ──────────────────────────
+    doc.build(story, onFirstPage=_draw_watermark, onLaterPages=_draw_watermark)
     pdf_bytes = buffer.getvalue()
     logger.info(f"Rich PDF generated successfully ({len(pdf_bytes):,} bytes)")
 

@@ -19,6 +19,15 @@ export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true"
 
+/** Returns headers with X-API-Key attached for every authenticated request. */
+function getHeaders(extra?: Record<string, string>): Record<string, string> {
+  const key = process.env.NEXT_PUBLIC_API_KEY || ""
+  return {
+    ...(key ? { "X-API-Key": key } : {}),
+    ...extra,
+  }
+}
+
 // ── Upload ──────────────────────────────────────────────────────────────────
 
 export async function uploadCSV(file: File): Promise<UploadCSVResponse> {
@@ -36,7 +45,7 @@ export async function uploadCSV(file: File): Promise<UploadCSVResponse> {
   }
   const form = new FormData()
   form.append("file", file)
-  const res = await fetch(`${API_BASE}/upload/csv`, { method: "POST", body: form })
+  const res = await fetch(`${API_BASE}/upload/csv`, { method: "POST", body: form, headers: getHeaders() })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -52,7 +61,7 @@ export async function uploadModel(
   const form = new FormData()
   form.append("file", file)
   form.append("job_id", job_id)
-  const res = await fetch(`${API_BASE}/upload/model`, { method: "POST", body: form })
+  const res = await fetch(`${API_BASE}/upload/model`, { method: "POST", body: form, headers: getHeaders() })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -71,7 +80,7 @@ export async function configureJob(
   }
   const res = await fetch(`${API_BASE}/analyze/configure`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       job_id,
       target_column,
@@ -102,7 +111,7 @@ export async function pollStatus(job_id: string): Promise<JobStatus> {
     if (mockStage < MOCK_STAGES.length - 1) mockStage++
     return status
   }
-  const res = await fetch(`${API_BASE}/status/${job_id}`)
+  const res = await fetch(`${API_BASE}/status/${job_id}`, { headers: getHeaders() })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -118,7 +127,7 @@ export async function getResults(job_id: string): Promise<Results> {
     await delay(300)
     return { ...mockResults, job_id }
   }
-  const res = await fetch(`${API_BASE}/results/${job_id}`)
+  const res = await fetch(`${API_BASE}/results/${job_id}`, { headers: getHeaders() })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -154,7 +163,7 @@ export function streamExplanation(
     // P3's /explain endpoint is POST-only SSE — EventSource only supports GET
     fetch(`${API_BASE}/explain`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ job_id }),
     })
       .then(async (res) => {
@@ -225,7 +234,7 @@ export async function askQuestion(
   }
   const res = await fetch(`${API_BASE}/ask`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ job_id, question }),
   })
   if (!res.ok) throw new Error(await res.text())
@@ -268,7 +277,8 @@ export async function getThreshold(
     }
   }
   const res = await fetch(
-    `${API_BASE}/remediate/threshold?job_id=${job_id}&threshold=${threshold}`
+    `${API_BASE}/remediate/threshold?job_id=${job_id}&threshold=${threshold}`,
+    { headers: getHeaders() }
   )
   if (!res.ok) throw new Error(await res.text())
   return res.json()
@@ -289,7 +299,7 @@ export async function downloadReport(job_id: string): Promise<void> {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/report/${job_id}`)
+    const res = await fetch(`${API_BASE}/report/${job_id}`, { headers: getHeaders() })
 
     if (!res.ok) {
       const errorText = await res.text()
@@ -308,19 +318,32 @@ export async function downloadReport(job_id: string): Promise<void> {
       url = `${baseUrl}${url}`
     }
 
-    if (pendingWindow) {
-      pendingWindow.location.href = url
-      pendingWindow.focus()
-      return
+    // 2. Fetch the actual PDF bytes WITH the API key
+    const pdfRes = await fetch(url, { headers: getHeaders() })
+    if (!pdfRes.ok) {
+        const errText = await pdfRes.text()
+        throw new Error(`Failed to download PDF: ${pdfRes.status} - ${errText}`)
     }
 
-    const anchor = document.createElement("a")
-    anchor.href = url
-    anchor.target = "_blank"
-    anchor.rel = "noopener noreferrer"
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
+    // 3. Convert to blob and trigger browser download
+    const blob = await pdfRes.blob()
+    const blobUrl = URL.createObjectURL(blob)
+
+    if (pendingWindow) {
+      pendingWindow.location.href = blobUrl
+      pendingWindow.focus()
+    } else {
+      const anchor = document.createElement("a")
+      anchor.href = blobUrl
+      anchor.download = `fairlens_report_${job_id.slice(0, 8)}.pdf`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+    }
+
+    // Clean up the object URL after navigation
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+
   } catch (err) {
     pendingWindow?.close()
     throw err instanceof Error ? err : new Error(String(err))

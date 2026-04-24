@@ -13,7 +13,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field
 
 import pandas as pd
@@ -22,6 +22,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "ml"))
 
 from services import storage
+from services.auth import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def _save_results(job_id: str, results: dict) -> None:
 # GET /results/{job_id}
 # ─────────────────────────────────────────────
 
-@router.get("/results/{job_id}")
+@router.get("/results/{job_id}", dependencies=[Depends(require_api_key)])
 async def get_results(job_id: str) -> dict:
     """
     GET /api/v1/results/{job_id}
@@ -116,7 +117,7 @@ async def get_results(job_id: str) -> dict:
 # POST /remediate/reweigh
 # ─────────────────────────────────────────────
 
-@router.post("/remediate/reweigh")
+@router.post("/remediate/reweigh", dependencies=[Depends(require_api_key)])
 async def reweigh(request: ReweighRequest) -> dict:
     """
     POST /api/v1/remediate/reweigh
@@ -196,7 +197,7 @@ async def reweigh(request: ReweighRequest) -> dict:
 # GET /remediate/threshold
 # ─────────────────────────────────────────────
 
-@router.get("/remediate/threshold", response_model=ThresholdResponse)
+@router.get("/remediate/threshold", response_model=ThresholdResponse, dependencies=[Depends(require_api_key)])
 async def get_threshold_metrics(
     job_id: str = Query(..., description="Job UUID"),
     threshold: float = Query(0.5, ge=0.0, le=1.0, description="Decision threshold"),

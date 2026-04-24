@@ -7,9 +7,11 @@ import {
   Loader2,
   Sparkles,
   Send,
+  ShieldCheck,
+  Clock,
 } from "lucide-react";
 import { Results, Explanation } from "@/lib/types";
-import { getResults, streamExplanation, downloadReport, askQuestion } from "@/lib/api";
+import { getResults, streamExplanation, downloadReport, askQuestion, API_BASE } from "@/lib/api";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { MetricsGrid } from "@/components/dashboard/MetricsGrid";
 import { ThresholdSimulator } from "@/components/dashboard/ThresholdSimulator";
@@ -27,6 +29,7 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
   const [qaHistory, setQaHistory] = useState<{question: string, answer: string}[]>([]);
   const [questionInput, setQuestionInput] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const [auditLog, setAuditLog] = useState<{ts: string; event: string; detail: Record<string, unknown>}[]>([]);
 
   const handleAskQuestion = async () => {
     if (!questionInput.trim() || isAsking) return;
@@ -68,8 +71,17 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
       params.job_id,
       (chunk) => setAiStream((prev) => prev + chunk),
       (exp) => setExplanation(exp),
-      (e) => setAiError(e.message)   // ← surface errors instead of console.error
+      (e) => setAiError(e.message)
     );
+
+    // Fetch audit log
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY || "";
+    fetch(`${API_BASE}/audit-log/${params.job_id}`, {
+      headers: apiKey ? { "X-API-Key": apiKey } : {},
+    })
+      .then((r) => r.json())
+      .then((data) => setAuditLog(data.events || []))
+      .catch(() => {});
 
     return cleanup;
   }, [params.job_id]);
@@ -351,6 +363,66 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
             </div>
           )}
         </div>
+      </div>
+
+      {/* Audit Log */}
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-emerald-600" />
+          <h2 className="text-xl font-semibold text-neutral-900">Secure Audit Log</h2>
+          <span className="ml-auto rounded-full bg-emerald-50 px-3 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+            Chain of Custody
+          </span>
+        </div>
+        <p className="mb-4 text-sm text-neutral-500">
+          Every action taken on this audit job is recorded. Use this log for compliance reporting and forensic review.
+        </p>
+        {auditLog.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-sm text-neutral-400">
+            No audit events recorded yet for this job.
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-neutral-200">
+            <table className="w-full text-sm">
+              <thead className="bg-neutral-50 text-left">
+                <tr>
+                  <th className="px-4 py-3 font-semibold text-neutral-600">Time</th>
+                  <th className="px-4 py-3 font-semibold text-neutral-600">Event</th>
+                  <th className="px-4 py-3 font-semibold text-neutral-600">Detail</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {auditLog.map((ev, i) => (
+                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-neutral-50/60"}>
+                    <td className="px-4 py-3 font-mono text-xs text-neutral-500 whitespace-nowrap">
+                      <Clock className="mr-1.5 inline h-3 w-3" />
+                      {new Date(ev.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        ev.event === "report_downloaded" ? "bg-blue-50 text-blue-700 border border-blue-200" :
+                        ev.event === "report_generated"  ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                        ev.event === "explanation_generated" ? "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200" :
+                        ev.event === "question_asked"    ? "bg-violet-50 text-violet-700 border border-violet-200" :
+                        ev.event === "upload_csv"        ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                        "bg-neutral-100 text-neutral-600"
+                      }`}>
+                        {ev.event.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-neutral-500">
+                      {Object.entries(ev.detail || {}).map(([k, v]) => (
+                        <span key={k} className="mr-3">
+                          <span className="text-neutral-400">{k}:</span> {String(v)}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

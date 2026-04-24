@@ -14,10 +14,15 @@ import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 # Load .env before anything else
 load_dotenv()
@@ -32,6 +37,9 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("fairlens")
+
+# Rate limiter (uses client IP by default)
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
 # --- Router imports ---
 from routers import upload          # file uploads
@@ -81,19 +89,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# --- Rate limiter state ---
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
-# --- CORS (allows Next.js frontend on localhost:3000 and Vercel) ---
+
+# --- CORS: driven by FRONTEND_URL env var; localhost allowed in dev ---
+_frontend_url = os.getenv("FRONTEND_URL", "").strip()
+_allowed_origins = [o for o in [
+    _frontend_url,
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+] if o]  # filter blanks
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        os.getenv("FRONTEND_URL", "https://fairlens.vercel.app"),
-    ],
-    allow_origin_regex=r"http://localhost:\d+",  # any localhost port for dev
+    allow_origins=_allowed_origins,
+    # allow any localhost port only when not in production
+    allow_origin_regex=r"http://localhost:\d+" if not _frontend_url.startswith("https://") else None,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 

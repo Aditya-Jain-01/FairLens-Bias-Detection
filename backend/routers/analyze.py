@@ -11,13 +11,14 @@ import os
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from services import storage
 from services.status import set_status, get_status
 from services.inference import run_inference
+from services.auth import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ async def _inject_mock_results(job_id: str, config: dict):
 
 # ── POST /analyze/configure ───────────────────────────────────────────────────
 
-@router.post("/analyze/configure")
+@router.post("/analyze/configure", dependencies=[Depends(require_api_key)])
 async def configure_job(req: ConfigureRequest, background_tasks: BackgroundTasks):
     """
     Validates configuration and kicks off the analysis pipeline.

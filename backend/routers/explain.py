@@ -13,12 +13,14 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
 from services import storage
 from services.status import set_status
+from services.auth import require_api_key
+from services.audit_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class AskRequest(BaseModel):
 
 # ── POST /explain ─────────────────────────────────────────────────────────────
 
-@router.post("/explain")
+@router.post("/explain", dependencies=[Depends(require_api_key)])
 async def explain(request: ExplainRequest):
     """
     Stream a Gemini-generated bias explanation as Server-Sent Events.
@@ -88,6 +90,7 @@ async def explain(request: ExplainRequest):
             except Exception as save_err:
                 logger.error(f"Failed to save explanation.json for job {job_id}: {save_err}")
 
+            log_event(job_id, "explanation_generated")
             set_status(job_id, "generating_report", "Generating PDF audit report…", progress=80)
             yield f"data: {json.dumps({'done': True, 'explanation': explanation})}\n\n"
 
@@ -112,7 +115,7 @@ async def explain(request: ExplainRequest):
 
 # ── POST /ask ─────────────────────────────────────────────────────────────────
 
-@router.post("/ask")
+@router.post("/ask", dependencies=[Depends(require_api_key)])
 async def ask(request: AskRequest):
     """
     Answer a follow-up question about the bias audit using Gemini (non-streaming).
@@ -153,6 +156,7 @@ async def ask(request: AskRequest):
         answer = await asyncio.to_thread(
             answer_question, messages=messages, system=QA_SYSTEM_PROMPT, max_tokens=2048
         )
+        log_event(job_id, "question_asked", detail={"question": request.question[:120]})
         return {"answer": answer}
 
     except RuntimeError as exc:
@@ -166,7 +170,7 @@ class IndividualExplainRequest(BaseModel):
     job_id: str
     row_data: dict
 
-@router.post("/explain/individual")
+@router.post("/explain/individual", dependencies=[Depends(require_api_key)])
 async def explain_individual(request: IndividualExplainRequest):
     """
     Explain a single prediction using the saved data.csv schema and model.pkl.
