@@ -70,13 +70,24 @@ def _http_post(url: str, body: dict, timeout: int = 120) -> dict:
 def _call_model(model: str, key: str, contents: list, system: str = None,
                 max_tokens: int = 4096, temperature: float = 0.2) -> str:
     """Call a specific model. Raises RuntimeError on any failure."""
+    import copy
+    
     url = f"{_BASE}/models/{model}:generateContent?key={key}"
+    local_contents = copy.deepcopy(contents)
+    
     body: dict = {
-        "contents": contents,
+        "contents": local_contents,
         "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature},
     }
+    
     if system:
-        body["system_instruction"] = {"parts": [{"text": system}]}
+        if "gemma" in model.lower():
+            # Gemma models don't support system_instruction.
+            # Prepend the system prompt to the first user message.
+            first_text = local_contents[0]["parts"][0].get("text", "")
+            local_contents[0]["parts"][0]["text"] = f"{system}\n\n{first_text}"
+        else:
+            body["system_instruction"] = {"parts": [{"text": system}]}
 
     data = _http_post(url, body)
     try:
@@ -157,6 +168,10 @@ def _generate(
                 continue
             elif _is_unavailable(msg):
                 logger.warning(f"Model '{model}' is unavailable (503), trying next…")
+                last_err = exc
+                continue
+            elif "HTTP 400" in msg:
+                logger.warning(f"Model '{model}' rejected the request (400 Bad Request), trying next…")
                 last_err = exc
                 continue
             elif _is_rate_limited(msg):
