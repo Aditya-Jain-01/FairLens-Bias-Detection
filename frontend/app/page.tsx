@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ArrowRight, FileSpreadsheet, ShieldCheck, SlidersHorizontal, Loader2 } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, FileSpreadsheet, ShieldCheck, SlidersHorizontal, Loader2 } from "lucide-react";
 import { pollStatus, configureJob } from "@/lib/api";
 import { RecentJobRecord, getRecentJobs, saveRecentJobs, upsertRecentJob } from "@/lib/recentJobs";
 
@@ -348,6 +348,36 @@ export default function Home() {
             )}
           </div>
         </div>
+      </section>
+
+      {/* ── How It Works teaser ── */}
+      <section className="panel overflow-hidden">
+        <div className="grid md:grid-cols-[1fr_auto] items-center gap-6 px-7 py-7">
+          <div className="flex items-start gap-5">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 shrink-0">
+              <BookOpen className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-widest text-amber-700 mb-1">New to FairLens?</div>
+              <div className="font-[family-name:var(--font-display)] text-xl font-semibold text-amber-950">
+                Understand exactly how AI bias auditing works
+              </div>
+              <p className="mt-1.5 text-sm text-amber-900/60 leading-6 max-w-lg">
+                Plain-English guide covering what AI bias is, why it matters legally, how each fairness
+                metric is calculated, and how to get the most out of every FairLens feature — with real
+                worked examples. No technical background needed.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/how-it-works"
+            className="btn-primary px-6 py-3 whitespace-nowrap shrink-0"
+          >
+            Read the guide <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        {/* decorative strip */}
+        <div className="h-1 w-full bg-gradient-to-r from-amber-400 via-emerald-400 to-amber-300 opacity-60" />
       </section>
     </div>
   );

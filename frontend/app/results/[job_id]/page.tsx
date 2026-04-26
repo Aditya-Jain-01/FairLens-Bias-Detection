@@ -229,57 +229,69 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
       </div>
 
       {/* AI Synthesis */}
-      <div className="bg-white border border-neutral-200 p-6 rounded-2xl shadow-sm text-neutral-900">
-        <div className="mb-4 flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-fuchsia-600" />
-          <h2 className="text-xl font-semibold text-neutral-900">AI Synthesis</h2>
-        </div>
-
-        <div className="max-w-none text-lg">
-          <div className="min-h-[60px] leading-relaxed text-neutral-700">
-            {explanation
-              ? <p>{explanation.plain_english}</p>
-              : aiError
-              ? <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-amber-800 font-medium">⚠ AI analysis failed: {aiError}</div>
-              : <p>{aiStream || "Gemini AI is analyzing the fairness metrics..."}</p>}
-            {!explanation && !aiError && (
-              <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-neutral-400" />
-            )}
+      <div className="panel-soft p-6 sm:p-8">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 p-2 dark:border-fuchsia-400/20 dark:bg-fuchsia-400/10">
+            <Sparkles className="h-5 w-5 text-fuchsia-600 dark:text-fuchsia-400" />
+          </div>
+          <div>
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-amber-950 dark:text-amber-100">
+              AI Synthesis
+            </h2>
+            <p className="text-xs text-amber-900/50 dark:text-amber-300/50">Powered by Google Gemini</p>
           </div>
         </div>
 
-        {explanation && explanation.findings && (
-          <div className="mt-8 space-y-4">
+        <div className="min-h-[60px] leading-relaxed text-amber-900/80 dark:text-amber-200/80 text-base">
+          {explanation
+            ? <p>{explanation.plain_english}</p>
+            : aiError
+            ? (
+              <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-rose-700 dark:text-rose-300 font-medium">
+                ⚠ AI analysis unavailable: {aiError}
+              </div>
+            )
+            : <p>{aiStream || "Gemini AI is analysing the fairness metrics…"}</p>
+          }
+          {!explanation && !aiError && (
+            <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-amber-500/50" />
+          )}
+        </div>
+
+        {explanation?.findings && (
+          <div className="mt-6 space-y-3">
             {explanation.findings.map((finding) => (
-              <div key={finding.id} className="flex gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
-                <Activity className="mt-1 h-6 w-6 shrink-0 text-amber-600" />
+              <div key={finding.id} className="metric-border rounded-2xl p-4 flex gap-4">
+                <Activity className="mt-1 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
                 <div>
-                  <h4 className="font-semibold text-neutral-900">{finding.headline}</h4>
-                  <p className="mt-1 text-sm leading-relaxed text-neutral-700">{finding.detail}</p>
+                  <h4 className="font-semibold text-amber-950 dark:text-amber-100">{finding.headline}</h4>
+                  <p className="mt-1 text-sm leading-relaxed text-amber-900/70 dark:text-amber-300/70">{finding.detail}</p>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Q&A Section */}
+        {/* Q&A */}
         {explanation && (
-          <div className="mt-8 border-t border-neutral-200 pt-6">
-            <h3 className="mb-4 text-lg font-semibold text-neutral-900">Follow-up Questions</h3>
-            
+          <div className="mt-8 border-t border-amber-600/10 dark:border-amber-400/10 pt-6">
+            <h3 className="mb-4 font-[family-name:var(--font-display)] text-lg font-semibold text-amber-950 dark:text-amber-100">
+              Follow-up Questions
+            </h3>
+
             {qaHistory.length > 0 && (
-              <div className="mb-4 space-y-4">
+              <div className="mb-4 space-y-4 max-h-72 overflow-y-auto scrollbar-subtle pr-1">
                 {qaHistory.map((qa, i) => (
-                   <div key={i} className="space-y-2 text-sm leading-relaxed">
-                     <div className="flex gap-3">
-                       <span className="font-bold text-fuchsia-600">You:</span>
-                       <span className="text-neutral-700">{qa.question}</span>
-                     </div>
-                     <div className="flex gap-3 rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
-                       <Sparkles className="h-4 w-4 shrink-0 text-fuchsia-600 mt-0.5" />
-                       <span className="min-w-0 whitespace-pre-wrap break-words text-neutral-700">{qa.answer}</span>
-                     </div>
-                   </div>
+                  <div key={i} className="space-y-2 text-sm leading-relaxed">
+                    <div className="flex gap-2">
+                      <span className="font-bold text-fuchsia-600 dark:text-fuchsia-400 shrink-0">You:</span>
+                      <span className="text-amber-900/80 dark:text-amber-200/80">{qa.question}</span>
+                    </div>
+                    <div className="metric-border rounded-2xl p-4 flex gap-3">
+                      <Sparkles className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
+                      <span className="min-w-0 whitespace-pre-wrap break-words text-amber-900/80 dark:text-amber-200/80">{qa.answer}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -287,19 +299,25 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
             <div className="flex items-center gap-3">
               <input
                 type="text"
-                placeholder="Ask FairLens about these results..."
+                placeholder="Ask FairLens about these results…"
                 value={questionInput}
                 onChange={(e) => setQuestionInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAskQuestion();
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAskQuestion(); }}
                 disabled={isAsking}
-                className="flex-1 rounded-2xl border border-neutral-200 bg-neutral-100 px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                className="
+                  flex-1 rounded-2xl border border-amber-500/20 bg-amber-500/8
+                  px-4 py-3 text-sm text-amber-950 placeholder-amber-900/40
+                  outline-none transition
+                  focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30
+                  disabled:opacity-50
+                  dark:border-amber-400/20 dark:bg-amber-400/8 dark:text-amber-100
+                  dark:placeholder-amber-300/30 dark:focus:border-amber-400/50
+                "
               />
               <button
                 onClick={handleAskQuestion}
                 disabled={isAsking || !questionInput.trim()}
-                className="flex items-center justify-center rounded-2xl bg-fuchsia-100 p-3 text-fuchsia-700 hover:bg-fuchsia-200 disabled:opacity-50"
+                className="flex items-center justify-center rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/10 p-3 text-fuchsia-700 transition hover:bg-fuchsia-500/20 disabled:opacity-50 dark:text-fuchsia-400 dark:border-fuchsia-400/20 dark:hover:bg-fuchsia-400/20"
               >
                 {isAsking ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </button>
@@ -310,7 +328,7 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
 
       {/* Metrics */}
       <div>
-        <h2 className="mb-6 px-2 font-[family-name:var(--font-display)] text-2xl font-bold text-neutral-900">
+        <h2 className="mb-6 px-2 font-[family-name:var(--font-display)] text-2xl font-bold text-amber-950 dark:text-amber-100">
           Core Fairness Metrics
         </h2>
         <MetricsGrid metrics={results.metrics} />
@@ -324,16 +342,16 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
         />
 
         <div className="panel-soft flex flex-col p-8">
-          <h3 className="mb-2 text-xl font-bold text-amber-950">SHAP Feature Importance</h3>
-          <p className="mb-6 text-sm text-neutral-600">
+          <h3 className="mb-2 text-xl font-bold text-amber-950 dark:text-amber-100">SHAP Feature Importance</h3>
+          <p className="mb-6 text-sm text-amber-900/60 dark:text-amber-300/60">
             Top drivers of model predictions. Inspect whether protected attributes are exerting outsized influence.
           </p>
 
           {!results.shap?.top_features || results.shap.top_features.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center rounded-[24px] border-2 border-dashed border-cyan-400/12 bg-amber-500/10">
+            <div className="flex flex-1 items-center justify-center rounded-[24px] border-2 border-dashed border-amber-500/20 bg-amber-500/8 p-8">
               <div className="max-w-sm text-center">
-                <p className="text-neutral-500">SHAP data is not available for this audit.</p>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">
+                <p className="text-amber-900/60 dark:text-amber-300/60">SHAP data is not available for this audit.</p>
+                <p className="mt-2 text-sm leading-6 text-amber-900/50 dark:text-amber-300/50">
                   The backend only computes SHAP when a compatible model artifact is uploaded and successfully loaded during analysis.
                 </p>
               </div>
@@ -342,22 +360,17 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
             <div className="flex-1 space-y-4">
               {results.shap.top_features.map((feat, idx) => (
                 <div key={idx} className="flex items-center gap-4">
-                  <div className="w-32 truncate text-sm font-medium text-neutral-700">{feat.feature}</div>
-                  <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-cyan-950/70">
+                  <div className="w-32 truncate text-sm font-medium text-amber-900/80 dark:text-amber-200/80">{feat.feature}</div>
+                  <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-amber-500/10 dark:bg-amber-400/10">
                     <div
                       className={`absolute left-0 h-full ${
-                        feat.direction === "positive"
-                          ? "bg-emerald-400"
-                          : feat.direction === "negative"
-                            ? "bg-rose-400"
-                            : "bg-amber-400"
+                        feat.direction === "positive" ? "bg-emerald-400" :
+                        feat.direction === "negative" ? "bg-rose-400" : "bg-amber-400"
                       }`}
-                      style={{
-                        width: `${(feat.importance / (results.shap?.top_features?.[0]?.importance || 1)) * 100}%`,
-                      }}
+                      style={{ width: `${(feat.importance / (results.shap?.top_features?.[0]?.importance || 1)) * 100}%` }}
                     />
                   </div>
-                  <div className="w-12 text-right text-sm text-neutral-500">{(feat.importance * 10).toFixed(2)}</div>
+                  <div className="w-12 text-right text-sm text-amber-900/50 dark:text-amber-300/50">{(feat.importance * 10).toFixed(2)}</div>
                 </div>
               ))}
             </div>
@@ -366,54 +379,57 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
       </div>
 
       {/* Audit Log */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-emerald-600" />
-          <h2 className="text-xl font-semibold text-neutral-900">Secure Audit Log</h2>
-          <span className="ml-auto rounded-full bg-emerald-50 px-3 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+      <div className="panel-soft p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+            <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-amber-950 dark:text-amber-100">Secure Audit Log</h2>
+            <p className="text-xs text-amber-900/50 dark:text-amber-300/50">Every action is recorded for compliance and forensic review</p>
+          </div>
+          <span className="ml-auto rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 dark:border-emerald-400/20">
             Chain of Custody
           </span>
         </div>
-        <p className="mb-4 text-sm text-neutral-500">
-          Every action taken on this audit job is recorded. Use this log for compliance reporting and forensic review.
-        </p>
+
         {auditLog.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-sm text-neutral-400">
+          <div className="metric-border rounded-2xl px-4 py-6 text-center text-sm text-amber-900/50 dark:text-amber-300/50">
             No audit events recorded yet for this job.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-neutral-200">
+          <div className="overflow-hidden rounded-2xl border border-amber-600/10 dark:border-amber-400/10">
             <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left">
+              <thead className="bg-amber-500/5 dark:bg-amber-400/5 text-left border-b border-amber-600/10 dark:border-amber-400/10">
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-neutral-600">Time</th>
-                  <th className="px-4 py-3 font-semibold text-neutral-600">Event</th>
-                  <th className="px-4 py-3 font-semibold text-neutral-600">Detail</th>
+                  <th className="px-4 py-3 font-semibold text-amber-900/60 dark:text-amber-300/60">Time</th>
+                  <th className="px-4 py-3 font-semibold text-amber-900/60 dark:text-amber-300/60">Event</th>
+                  <th className="px-4 py-3 font-semibold text-amber-900/60 dark:text-amber-300/60">Detail</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody className="divide-y divide-amber-600/8 dark:divide-amber-400/8">
                 {auditLog.map((ev, i) => (
-                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-neutral-50/60"}>
-                    <td className="px-4 py-3 font-mono text-xs text-neutral-500 whitespace-nowrap">
+                  <tr key={i} className={i % 2 === 0 ? "" : "bg-amber-500/3 dark:bg-amber-400/3"}>
+                    <td className="px-4 py-3 font-mono text-xs text-amber-900/55 dark:text-amber-300/55 whitespace-nowrap">
                       <Clock className="mr-1.5 inline h-3 w-3" />
                       {new Date(ev.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        ev.event === "report_downloaded" ? "bg-blue-50 text-blue-700 border border-blue-200" :
-                        ev.event === "report_generated"  ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                        ev.event === "explanation_generated" ? "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200" :
-                        ev.event === "question_asked"    ? "bg-violet-50 text-violet-700 border border-violet-200" :
-                        ev.event === "upload_csv"        ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                        "bg-neutral-100 text-neutral-600"
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+                        ev.event === "report_downloaded"     ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/40" :
+                        ev.event === "report_generated"      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700/40" :
+                        ev.event === "explanation_generated" ? "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-300 dark:border-fuchsia-700/40" :
+                        ev.event === "question_asked"        ? "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-700/40" :
+                        ev.event === "upload_csv"            ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/40" :
+                        "bg-amber-500/8 text-amber-900/70 border-amber-500/20 dark:text-amber-300/70 dark:border-amber-400/20"
                       }`}>
                         {ev.event.replace(/_/g, " ")}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-neutral-500">
+                    <td className="px-4 py-3 font-mono text-xs text-amber-900/55 dark:text-amber-300/55">
                       {Object.entries(ev.detail || {}).map(([k, v]) => (
                         <span key={k} className="mr-3">
-                          <span className="text-neutral-400">{k}:</span> {String(v)}
+                          <span className="text-amber-900/35 dark:text-amber-300/35">{k}:</span> {String(v)}
                         </span>
                       ))}
                     </td>

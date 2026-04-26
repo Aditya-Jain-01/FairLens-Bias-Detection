@@ -57,6 +57,92 @@
   }
 }
 
+/* ── Dark mode overrides (CSS vars + element styles) ──────────────────────── */
+html.dark {
+  --background: 24 12% 8%;
+  --foreground: 36 25% 92%;
+  --surface: 25 10% 11%;
+  --surface-strong: 26 10% 14%;
+  --surface-muted: 26 10% 16%;
+  --border: 30 12% 22%;
+  --primary: 38 88% 58%;
+  --primary-foreground: 24 12% 8%;
+  --secondary: 26 10% 14%;
+  --secondary-foreground: 36 25% 88%;
+  --accent: 152 64% 46%;
+  --success: 152 76% 50%;
+  --warning: 39 93% 62%;
+  --destructive: 351 89% 63%;
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(218, 155, 40, 0.07), transparent 35%),
+    radial-gradient(circle at top right, rgba(52, 211, 153, 0.04), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(218, 155, 40, 0.04), transparent 50%),
+    linear-gradient(180deg, #141008 0%, #120f08 40%, #0f0d06 100%);
+  color: hsl(36, 25%, 92%);
+}
+
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4 {
+  color: hsl(36, 30%, 90%);
+}
+
+html.dark p,
+html.dark span,
+html.dark label {
+  color: hsl(36, 20%, 72%);
+}
+
+/* ── Dark mode: remap low-contrast amber text to visible warm tones ───────── */
+/* amber-950 (very dark brown) → near-white warm  */
+html.dark .text-amber-950 { color: rgb(255 244 210) !important; }
+
+/* amber-900 solid and opacity variants → amber-200 equivalent */
+html.dark .text-amber-900    { color: rgb(253 230 138) !important; }
+html.dark .text-amber-900\/80 { color: rgb(253 230 138 / 0.88) !important; }
+html.dark .text-amber-900\/70 { color: rgb(253 230 138 / 0.78) !important; }
+html.dark .text-amber-900\/65 { color: rgb(253 230 138 / 0.73) !important; }
+html.dark .text-amber-900\/60 { color: rgb(253 230 138 / 0.68) !important; }
+html.dark .text-amber-900\/50 { color: rgb(253 230 138 / 0.60) !important; }
+html.dark .text-amber-900\/45 { color: rgb(253 230 138 / 0.55) !important; }
+html.dark .text-amber-900\/40 { color: rgb(253 230 138 / 0.48) !important; }
+
+/* amber-700 (used for labels/links) → amber-400 */
+html.dark .text-amber-700 { color: rgb(251 191 36) !important; }
+
+/* amber-600 (used for metric numbers) → keep vivid amber */
+html.dark .text-amber-600 { color: rgb(245 158 11) !important; }
+
+/* cyan-700 (used in badges on how-it-works) → lighter cyan */
+html.dark .text-cyan-700 { color: rgb(103 232 249) !important; }
+
+/* fuchsia-300, emerald-300 (capability card icons) — already light, keep as-is */
+
+/* ── Dark mode: remap light bg-*-50 colored panels (step cards etc.) ──────── */
+/* These stay light in dark mode by default → light text on light bg = bad   */
+html.dark .bg-amber-50   { background-color: rgb(41 26 6 / 0.9)   !important; }
+html.dark .bg-purple-50  { background-color: rgb(30 18 46 / 0.9)  !important; }
+html.dark .bg-blue-50    { background-color: rgb(14 24 46 / 0.9)  !important; }
+html.dark .bg-emerald-50 { background-color: rgb(6 30 22 / 0.9)   !important; }
+html.dark .bg-rose-50    { background-color: rgb(38 12 18 / 0.9)  !important; }
+html.dark .bg-cyan-50    { background-color: rgb(6 26 32 / 0.9)   !important; }
+
+/* Similarly remap light borders used alongside these panels */
+html.dark .border-amber-200   { border-color: rgb(120 80 10 / 0.5)  !important; }
+html.dark .border-purple-200  { border-color: rgb(100 50 130 / 0.5) !important; }
+html.dark .border-blue-200    { border-color: rgb(40 80 140 / 0.5)  !important; }
+html.dark .border-emerald-200 { border-color: rgb(20 90 60 / 0.5)   !important; }
+html.dark .border-rose-200    { border-color: rgb(120 30 50 / 0.5)  !important; }
+html.dark .border-cyan-200    { border-color: rgb(20 90 110 / 0.5)  !important; }
+
+/* Step number shadow (text-black/10) → use white/10 in dark mode */
+html.dark .text-black\/10 { color: rgb(255 255 255 / 0.08) !important; }
+
+
 @layer utilities {
   .glass {
     background: linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(255, 251, 246, 0.92));
@@ -64,6 +150,13 @@
     box-shadow:
       0 10px 28px rgba(218, 155, 40, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  html.dark .glass {
+    background: linear-gradient(180deg, rgba(26, 21, 12, 0.98), rgba(20, 16, 8, 0.97));
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(218, 155, 40, 0.07);
   }
 
   .panel {
@@ -74,6 +167,11 @@
     background: linear-gradient(180deg, rgba(255, 252, 248, 0.96), rgba(255, 250, 244, 0.9));
     @apply border rounded-3xl backdrop-blur-lg;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  html.dark .panel-soft {
+    background: linear-gradient(180deg, rgba(24, 20, 11, 0.97), rgba(20, 16, 8, 0.95));
+    box-shadow: inset 0 1px 0 rgba(218, 155, 40, 0.06);
   }
 
   .ring-glow {
@@ -137,6 +235,13 @@
     background:
       linear-gradient(180deg, rgba(255, 252, 248, 0.94), rgba(255, 250, 244, 0.98)) padding-box,
       linear-gradient(135deg, rgba(218, 155, 40, 0.16), rgba(52, 211, 153, 0.1)) border-box;
+    border: 1px solid transparent;
+  }
+
+  html.dark .metric-border {
+    background:
+      linear-gradient(180deg, rgba(28, 23, 12, 0.95), rgba(22, 18, 9, 0.98)) padding-box,
+      linear-gradient(135deg, rgba(218, 155, 40, 0.2), rgba(52, 211, 153, 0.12)) border-box;
     border: 1px solid transparent;
   }
 
