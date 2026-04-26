@@ -114,12 +114,12 @@ The dashboard will be available at `http://localhost:3000`.
 | `GCP_PROJECT_ID` | Production | GCP project ID. Also enables Firestore job metadata. |
 | `GCS_UPLOAD_BUCKET` | Production | GCS bucket for uploads |
 | `GCS_RESULTS_BUCKET` | Production | GCS bucket for results |
-| `CLOUD_TASKS_QUEUE` | Phase 2 | Cloud Tasks queue name (e.g. `fairlens-jobs`). If unset, falls back to in-process execution. |
-| `CLOUD_TASKS_LOCATION` | Phase 2 | GCP region for the queue, e.g. `us-central1` |
-| `WORKER_URL` | Phase 2 | Full URL of the `/internal/run-job` endpoint on Cloud Run |
-| `INTERNAL_WORKER_SECRET` | Phase 2 | Shared secret to authenticate Cloud Tasks → worker calls |
-| `REDIS_URL` | Phase 2 | Redis connection string for result caching. If unset, falls back to in-memory cache. |
-| `CACHE_TTL_SECONDS` | Phase 2 | Cache entry lifetime in seconds. Default: `3600` (1 hour) |
+| `CLOUD_TASKS_QUEUE` | Production | Cloud Tasks queue name (e.g. `fairlens-jobs`). If unset, falls back to in-process execution. |
+| `CLOUD_TASKS_LOCATION` | Production | GCP region for the queue, e.g. `us-central1` |
+| `WORKER_URL` | Production | Full URL of the `/internal/run-job` endpoint on Cloud Run |
+| `INTERNAL_WORKER_SECRET` | Production | Shared secret to authenticate Cloud Tasks → worker calls |
+| `REDIS_URL` | Production | Redis connection string for result caching. If unset, falls back to in-memory cache. |
+| `CACHE_TTL_SECONDS` | Production | Cache entry lifetime in seconds. Default: `3600` (1 hour) |
 
 ### Frontend (`frontend/.env.local`)
 
@@ -266,52 +266,4 @@ gcloud run services update fairlens-api \
   --region=us-central1 --quiet
 ```
 
-### Phase 2 GCP Service Setup
 
-#### Cloud Tasks (Async Job Queue)
-
-```bash
-# Enable the API
-gcloud services enable cloudtasks.googleapis.com --project=project-0c33e365-3fc0-4d06-b0a
-
-# Create the queue (one-time)
-gcloud tasks queues create fairlens-jobs --location=us-central1 --project=project-0c33e365-3fc0-4d06-b0a
-
-# Push the required env vars to Cloud Run
-gcloud run services update fairlens-api \
-  --update-env-vars \
-  CLOUD_TASKS_QUEUE=fairlens-jobs,CLOUD_TASKS_LOCATION=us-central1,WORKER_URL=https://fairlens-api-455157904994.us-central1.run.app/internal/run-job,INTERNAL_WORKER_SECRET=<your-generated-secret> \
-  --region=us-central1
-```
-
-#### Firestore (Job Metadata Database)
-
-Automatically enabled when `GCP_PROJECT_ID` is set on Cloud Run. No extra env var needed.
-
-```bash
-# Enable the API (free tier — no cost at this project's volume)
-gcloud services enable firestore.googleapis.com --project=project-0c33e365-3fc0-4d06-b0a
-
-# Create the default database (one-time)
-gcloud firestore databases create --location=us-central1 --project=project-0c33e365-3fc0-4d06-b0a
-```
-
-#### Cloud Memorystore Redis (Result Cache)
-
-```bash
-# Enable the API
-gcloud services enable redis.googleapis.com --project=project-0c33e365-3fc0-4d06-b0a
-
-# Create a 1 GB Redis instance (~$35/month from GCP credits)
-gcloud redis instances create fairlens-cache \
-  --size=1 --region=us-central1 \
-  --project=project-0c33e365-3fc0-4d06-b0a
-
-# Get the instance host IP
-gcloud redis instances describe fairlens-cache --region=us-central1 --format="value(host)"
-
-# Push REDIS_URL to Cloud Run (replace <HOST> with the IP above)
-gcloud run services update fairlens-api \
-  --update-env-vars REDIS_URL=redis://default@<HOST>:6379/0 \
-  --region=us-central1
-```
