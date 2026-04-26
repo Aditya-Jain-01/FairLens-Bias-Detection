@@ -124,7 +124,7 @@ export default function UploadPage() {
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between rounded-2xl border border-amber-600/10 bg-amber-500/5 px-4 py-3">
                   <span className="text-sm text-amber-900/60">{label}</span>
-                  <span className="max-w-[60%] truncate text-sm font-medium text-cyan-100">{value}</span>
+                  <span className="max-w-[60%] truncate text-sm font-medium text-amber-900">{value}</span>
                 </div>
               ))}
             </div>
@@ -227,7 +227,7 @@ export default function UploadPage() {
         <div className="animate-slide-up">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-xl font-bold text-amber-950">Map Variables</h2>
-            <button onClick={() => setStep(1)} className="text-sm text-[#d97706]/75 transition hover:text-cyan-100">
+            <button onClick={() => setStep(1)} className="text-sm text-[#d97706]/75 transition hover:text-amber-900">
               Back to uploads
             </button>
           </div>
