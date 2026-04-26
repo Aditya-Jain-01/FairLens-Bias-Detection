@@ -21,6 +21,7 @@ Env var:
 import os
 import hmac
 import logging
+from typing import Optional
 
 from fastapi import Security, HTTPException, status
 from fastapi.security import APIKeyHeader
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 _API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-def _get_configured_key() -> str | None:
+def _get_configured_key() -> Optional[str]:
     """Read the expected API key from env. Warn loudly if missing."""
     key = os.getenv("SECRET_API_KEY", "").strip()
     if not key:
@@ -43,7 +44,7 @@ def _get_configured_key() -> str | None:
     return key
 
 
-async def require_api_key(api_key: str | None = Security(_API_KEY_HEADER)) -> str:
+async def require_api_key(api_key: Optional[str] = Security(_API_KEY_HEADER)) -> str:
     """
     FastAPI dependency. Raises 403 if the X-API-Key header is missing or wrong.
     Use via:  dependencies=[Depends(require_api_key)]

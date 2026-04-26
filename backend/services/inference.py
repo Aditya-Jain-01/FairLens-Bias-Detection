@@ -8,6 +8,7 @@ Saves predictions.csv to storage with all columns needed downstream:
 
 import tempfile
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -48,7 +49,7 @@ def run_inference(job_id: str, config: dict) -> Path:
             raw_df[target_col] = pd.to_numeric(col, errors="coerce").fillna(0).astype(int)
 
     # ── Run model inference ──────────────────────────────────────────────────
-    model_path: Path | None = None
+    model_path: Optional[Path] = None
     if storage.file_exists(job_id, "model.pkl", bucket="uploads"):
         model_path = storage.get_local_file_path(job_id, "model.pkl", bucket="uploads")
 
@@ -84,7 +85,7 @@ def run_inference(job_id: str, config: dict) -> Path:
 
 # ── Inference helpers ─────────────────────────────────────────────────────────
 
-def _pseudo_predictions(df: pd.DataFrame, target_col: str) -> list[dict]:
+def _pseudo_predictions(df: pd.DataFrame, target_col: str) -> List[Dict]:
     """Generate pseudo-predictions from ground-truth labels (no model mode)."""
     import numpy as np
 
@@ -104,7 +105,7 @@ def _pseudo_predictions(df: pd.DataFrame, target_col: str) -> list[dict]:
 
 
 
-def _run_sklearn(model_path: Path, df: pd.DataFrame, target_col: str) -> list[dict]:
+def _run_sklearn(model_path: Path, df: pd.DataFrame, target_col: str) -> List[Dict]:
     """Run a scikit-learn .pkl model and return predictions."""
     import joblib
 
@@ -128,7 +129,7 @@ def _run_sklearn(model_path: Path, df: pd.DataFrame, target_col: str) -> list[di
     return [{"y_pred_proba": float(p), "y_pred": int(l)} for p, l in zip(prob, predicted)]
 
 
-def _run_onnx(model_path: Path, df: pd.DataFrame, target_col: str) -> list[dict]:
+def _run_onnx(model_path: Path, df: pd.DataFrame, target_col: str) -> List[Dict]:
     """Run an ONNX model and return predictions."""
     import numpy as np
     try:

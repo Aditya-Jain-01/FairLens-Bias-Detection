@@ -10,6 +10,7 @@ import asyncio
 import os
 import logging
 from datetime import datetime, timezone
+from typing import List
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
@@ -30,7 +31,7 @@ router = APIRouter()
 class ConfigureRequest(BaseModel):
     job_id: str
     target_column: str
-    protected_attributes: list[str]
+    protected_attributes: List[str]
     positive_outcome_label: int = 1
 
 
@@ -174,7 +175,16 @@ async def configure_job(req: ConfigureRequest, background_tasks: BackgroundTasks
         _setup_demo_files(req.job_id)
         background_tasks.add_task(_run_pipeline, req.job_id, config)
     else:
-        background_tasks.add_task(_run_pipeline, req.job_id, config)
+        # Phase 2.1: Try Cloud Tasks first, fall back to BackgroundTasks
+        from services.queue import enqueue_job
+        from services.db import db_upsert_config
+        # Persist config to Firestore for cross-instance access
+        try:
+            db_upsert_config(req.job_id, config)
+        except Exception:
+            pass
+        if not enqueue_job(req.job_id, config):
+            background_tasks.add_task(_run_pipeline, req.job_id, config)
 
     return JSONResponse({"job_id": req.job_id, "status": "queued"})
 

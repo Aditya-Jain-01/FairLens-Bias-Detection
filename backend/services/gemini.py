@@ -22,6 +22,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ _PREFERRED = [
     "gemini-2.0-flash",
 ]
 
-_working_model: str | None = None  # cached after first successful call
+_working_model: Optional[str] = None  # cached after first successful call
 
 
 # ── private ────────────────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ def _http_post(url: str, body: dict, timeout: int = 120) -> dict:
         raise RuntimeError(f"Gemini HTTP {e.code}: {err}") from e
 
 
-def _call_model(model: str, key: str, contents: list, system: str = None,
+def _call_model(model: str, key: str, contents: list, system: Optional[str] = None,
                 max_tokens: int = 4096, temperature: float = 0.2) -> str:
     """Call a specific model. Raises RuntimeError on any failure."""
     import copy
@@ -108,8 +109,6 @@ def _is_unavailable(error_msg: str) -> bool:
 def _is_not_found(error_msg: str) -> bool:
     return "HTTP 404" in error_msg or "not found" in error_msg.lower()
 
-def _is_unavailable(error_msg: str) -> bool:
-    return "HTTP 503" in error_msg or "unavailable" in error_msg.lower()
 
 def _is_rate_limited(error_msg: str) -> bool:
     """Return True if the error is a normal per-minute rate limit (not limit: 0)."""
@@ -118,7 +117,7 @@ def _is_rate_limited(error_msg: str) -> bool:
 
 def _generate(
     contents: list,
-    system: str = None,
+    system: Optional[str] = None,
     max_tokens: int = 4096,
     temperature: float = 0.2,
 ) -> str:

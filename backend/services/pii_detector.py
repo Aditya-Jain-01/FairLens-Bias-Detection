@@ -20,7 +20,7 @@ Returns:
 
 import re
 import logging
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict, List, Set
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,8 @@ def detect_pii(columns: List[str], sample_values: Optional[Dict[str, List[Any]]]
     Returns:
         {"has_pii": bool, "flagged_columns": [...]}
     """
-    flagged: list[dict] = []
-    seen_columns: set[str] = set()
+    flagged: List[dict] = []
+    seen_columns: Set[str] = set()
 
     for col in columns:
         col_lower = col.lower().replace(" ", "_").replace("-", "_")

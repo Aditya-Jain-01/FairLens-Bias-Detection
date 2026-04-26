@@ -36,6 +36,9 @@ def run_full_analysis(job_id: str) -> dict:
     """
     Full bias analysis pipeline for a given job.
 
+    Phase 2.3: Checks the Redis/in-memory cache before running any ML.
+    On a cache hit, writes results directly and returns immediately.
+
     Reads data.csv, predictions.csv, config.json from storage,
     runs bias_engine + shap_engine + remediation, writes results.json.
 
@@ -48,6 +51,7 @@ def run_full_analysis(job_id: str) -> dict:
     from ml.bias_engine import compute_bias_metrics, _detect_privileged
     from ml.shap_engine import compute_shap_values
     from ml.remediation import run_reweighing_pipeline, cache_predictions
+    from services.cache import compute_cache_key, get_cached_result, set_cached_result
 
     set_status(job_id, "computing_metrics", "Loading data and config...", progress=10)
 
@@ -62,6 +66,16 @@ def run_full_analysis(job_id: str) -> dict:
             "positive_outcome_label": 1,
         }
 
+    # ── Phase 2.3: Cache check ─────────────────────────────────────────────────
+    cache_key = compute_cache_key(job_id, config)
+    cached = get_cached_result(cache_key)
+    if cached:
+        set_status(job_id, "computing_metrics", "Loaded from cache — skipping pipeline.", progress=90)
+        storage.write_json(job_id, "results.json", cached, bucket="results")
+        set_status(job_id, "generating_explanation", "Metrics complete — ready for AI explanation.")
+        logger.info(f"Cache hit for job {job_id} — pipeline skipped.")
+        return cached
+    # ──────────────────────────────────────────────────────────────────────────
     target_col = config.get("target_column", "income")
     protected_attrs = config.get("protected_attributes", ["sex", "race"])
 
@@ -171,6 +185,19 @@ def run_full_analysis(job_id: str) -> dict:
 
     # Write to storage
     storage.write_json(job_id, "results.json", results, bucket="results")
+
+    # Phase 2.3: Store in cache for future identical requests
+    try:
+        set_cached_result(cache_key, results)
+    except Exception as e:
+        logger.warning(f"Cache write failed: {e}")
+
+    # Phase 2.2: Persist results to Firestore
+    try:
+        from services.db import db_upsert_results
+        db_upsert_results(job_id, results)
+    except Exception as e:
+        logger.warning(f"Firestore results write failed: {e}")
 
     set_status(job_id, "generating_explanation", "Metrics complete — ready for AI explanation.")
     return results

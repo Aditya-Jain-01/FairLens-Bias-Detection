@@ -111,9 +111,15 @@ The dashboard will be available at `http://localhost:3000`.
 | `USE_MOCK_PIPELINE` | No | `true` = skip ML inference, use mock data |
 | `LOCAL_UPLOAD_DIR` | Local only | `./storage_local/uploads` |
 | `LOCAL_RESULTS_DIR` | Local only | `./storage_local/results` |
-| `GCP_PROJECT_ID` | Production | GCP project ID |
+| `GCP_PROJECT_ID` | Production | GCP project ID. Also enables Firestore job metadata. |
 | `GCS_UPLOAD_BUCKET` | Production | GCS bucket for uploads |
 | `GCS_RESULTS_BUCKET` | Production | GCS bucket for results |
+| `CLOUD_TASKS_QUEUE` | Phase 2 | Cloud Tasks queue name (e.g. `fairlens-jobs`). If unset, falls back to in-process execution. |
+| `CLOUD_TASKS_LOCATION` | Phase 2 | GCP region for the queue, e.g. `us-central1` |
+| `WORKER_URL` | Phase 2 | Full URL of the `/internal/run-job` endpoint on Cloud Run |
+| `INTERNAL_WORKER_SECRET` | Phase 2 | Shared secret to authenticate Cloud Tasks → worker calls |
+| `REDIS_URL` | Phase 2 | Redis connection string for result caching. If unset, falls back to in-memory cache. |
+| `CACHE_TTL_SECONDS` | Phase 2 | Cache entry lifetime in seconds. Default: `3600` (1 hour) |
 
 ### Frontend (`frontend/.env.local`)
 
@@ -229,27 +235,83 @@ FairLens/
 
 ---
 
-## Cloud Deployment
+## Cloud Deployment (Easy Setup)
 
 **Live Application:** `https://fairlens-api-455157904994.us-central1.run.app`
 
-### Build & Deploy
+### 1. Fast Backend Deploy (One-Liner)
+
+Use this single command to build the Docker image and deploy it directly to Cloud Run without downtime:
 
 ```bash
-# Build Docker image
-gcloud builds submit \
-  --tag us-central1-docker.pkg.dev/project-0c33e365-3fc0-4d06-b0a/fairlens/fairlens-api \
-  backend/
+gcloud builds submit --tag us-central1-docker.pkg.dev/project-0c33e365-3fc0-4d06-b0a/fairlens/fairlens-api backend/ && gcloud run deploy fairlens-api --image us-central1-docker.pkg.dev/project-0c33e365-3fc0-4d06-b0a/fairlens/fairlens-api --region=us-central1 --project=project-0c33e365-3fc0-4d06-b0a --quiet
+```
 
-# Deploy to Cloud Run
-gcloud run deploy fairlens-api \
-  --image us-central1-docker.pkg.dev/project-0c33e365-3fc0-4d06-b0a/fairlens/fairlens-api \
-  --region=us-central1 \
-  --project=project-0c33e365-3fc0-4d06-b0a \
-  --quiet
+### 2. Frontend Deploy (Vercel)
 
-# Update environment variables
+If your frontend is hosted on Vercel, it automatically redeploys on every git push. Just commit and push your changes:
+
+```bash
+git add -A
+git commit -m "deploy: update to latest codebase"
+git push
+```
+
+### 3. Update Environment Variables (Optional)
+
+If you need to update secrets or URLs:
+```bash
 gcloud run services update fairlens-api \
   --update-env-vars SECRET_API_KEY=your-key,FRONTEND_URL=https://your-app.vercel.app \
   --region=us-central1 --quiet
+```
+
+### Phase 2 GCP Service Setup
+
+#### Cloud Tasks (Async Job Queue)
+
+```bash
+# Enable the API
+gcloud services enable cloudtasks.googleapis.com --project=project-0c33e365-3fc0-4d06-b0a
+
+# Create the queue (one-time)
+gcloud tasks queues create fairlens-jobs --location=us-central1 --project=project-0c33e365-3fc0-4d06-b0a
+
+# Push the required env vars to Cloud Run
+gcloud run services update fairlens-api \
+  --update-env-vars \
+  CLOUD_TASKS_QUEUE=fairlens-jobs,CLOUD_TASKS_LOCATION=us-central1,WORKER_URL=https://fairlens-api-455157904994.us-central1.run.app/internal/run-job,INTERNAL_WORKER_SECRET=<your-generated-secret> \
+  --region=us-central1
+```
+
+#### Firestore (Job Metadata Database)
+
+Automatically enabled when `GCP_PROJECT_ID` is set on Cloud Run. No extra env var needed.
+
+```bash
+# Enable the API (free tier — no cost at this project's volume)
+gcloud services enable firestore.googleapis.com --project=project-0c33e365-3fc0-4d06-b0a
+
+# Create the default database (one-time)
+gcloud firestore databases create --location=us-central1 --project=project-0c33e365-3fc0-4d06-b0a
+```
+
+#### Cloud Memorystore Redis (Result Cache)
+
+```bash
+# Enable the API
+gcloud services enable redis.googleapis.com --project=project-0c33e365-3fc0-4d06-b0a
+
+# Create a 1 GB Redis instance (~$35/month from GCP credits)
+gcloud redis instances create fairlens-cache \
+  --size=1 --region=us-central1 \
+  --project=project-0c33e365-3fc0-4d06-b0a
+
+# Get the instance host IP
+gcloud redis instances describe fairlens-cache --region=us-central1 --format="value(host)"
+
+# Push REDIS_URL to Cloud Run (replace <HOST> with the IP above)
+gcloud run services update fairlens-api \
+  --update-env-vars REDIS_URL=redis://default@<HOST>:6379/0 \
+  --region=us-central1
 ```

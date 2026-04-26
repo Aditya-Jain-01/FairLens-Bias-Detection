@@ -47,6 +47,7 @@ from routers import analyze         # job configuration + pipeline
 from routers import remediate       # bias remediation + results
 from routers import explain         # Gemini AI explanation
 from routers import report          # PDF report generation
+from routers import worker          # Phase 2.1: Cloud Tasks internal worker
 
 
 # --- Lifespan: startup / shutdown ---
@@ -77,6 +78,15 @@ async def lifespan(app: FastAPI):
         logger.info(f"  Gemini model: {os.getenv('GEMINI_MODEL')}")
 
     logger.info("  ✅ Ready — visit http://localhost:8000/docs")
+
+    # Phase 2 — log scalability service status
+    queue_configured = bool(os.getenv("CLOUD_TASKS_QUEUE"))
+    db_configured    = bool(os.getenv("GCP_PROJECT_ID"))
+    redis_configured = bool(os.getenv("REDIS_URL"))
+    logger.info(f"  Job queue  : {'Cloud Tasks' if queue_configured else 'In-process BackgroundTasks (fallback)'}")
+    logger.info(f"  Database   : {'Firestore' if db_configured else 'Local JSON files (fallback)'}")
+    logger.info(f"  Cache      : {'Redis (Cloud Memorystore)' if redis_configured else 'In-memory TTL cache (fallback)'}")
+
     yield
     logger.info("FairLens API shutting down.")
 
@@ -143,6 +153,7 @@ app.include_router(explain.router,   prefix="/api/v1", tags=["ai"])
 app.include_router(report.router,    prefix="/api/v1", tags=["report"])
 from routers import history
 app.include_router(history.router,   prefix="/api/v1", tags=["history"])
+app.include_router(worker.router,    prefix="",        tags=["internal"])  # Phase 2.1
 
 
 # --- Health check (used by Cloud Run to verify the container is alive) ---

@@ -13,7 +13,7 @@ import argparse
 import json
 import warnings
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, List
 
 import numpy as np
 import pandas as pd
@@ -272,7 +272,7 @@ def _detect_privileged(df: pd.DataFrame, target_col: str, protected_col: str) ->
 def compute_bias_metrics(
     df: pd.DataFrame,
     target_col: str,
-    protected_attributes: list[str],
+    protected_attributes: List[str],
     pred_col: str = "y_pred",
     job_id: str = "local-test",
 ) -> dict:
