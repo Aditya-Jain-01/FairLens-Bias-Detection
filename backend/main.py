@@ -105,22 +105,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 
-# --- CORS: driven by FRONTEND_URL env var; localhost allowed in dev ---
-_frontend_url = os.getenv("FRONTEND_URL", "").strip()
-_allowed_origins = [o for o in [
-    _frontend_url,
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-] if o]  # filter blanks
-
+# --- CORS: Allow all origins to bypass trailing slash and formatting issues ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
-    # allow any localhost port only when not in production
-    allow_origin_regex=r"http://localhost:\d+" if not _frontend_url.startswith("https://") else None,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

@@ -6,6 +6,7 @@
 .env
 .env.local
 .env.*.local
+.env.production
 *.env
 **/service-account*.json
 **/gcloud-key*.json

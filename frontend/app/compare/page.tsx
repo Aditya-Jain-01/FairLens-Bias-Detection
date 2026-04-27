@@ -18,7 +18,7 @@ export default function ComparePage() {
   const [loadingCompare, setLoadingCompare] = useState(false);
 
   useEffect(() => {
-    const headers = process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {};
+    const headers: Record<string, string> = process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {};
     fetch(`${API_BASE}/history`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch history");
@@ -33,7 +33,7 @@ export default function ComparePage() {
     if (!baselineId || !candidateId) return;
     setLoadingCompare(true);
     try {
-      const headers = process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {};
+      const headers: Record<string, string> = process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {};
       const [res1, res2] = await Promise.all([
         fetch(`${API_BASE}/results/${baselineId}`, { headers }),
         fetch(`${API_BASE}/results/${candidateId}`, { headers })

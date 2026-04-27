@@ -62,7 +62,7 @@ export default function HistoryPage() {
     async function fetchHistory() {
       try {
         const res = await fetch(`${API_BASE}/history`, {
-          headers: process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {}
+          headers: (process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {}) as Record<string, string>
         });
         if (!res.ok) throw new Error("Failed to fetch history");
         setHistory(await res.json());
@@ -148,7 +148,7 @@ export default function HistoryPage() {
                     background: "rgba(255,252,248,0.97)",
                     boxShadow: "0 8px 20px rgba(218,155,40,0.12)",
                   }}
-                  formatter={(value: number) => [`${value}/100`, "FairLens Score"]}
+                  formatter={(value: any) => [`${value}/100`, "FairLens Score"]}
                   labelFormatter={(_label, payload) => payload[0]?.payload.label || _label}
                 />
                 <Line
