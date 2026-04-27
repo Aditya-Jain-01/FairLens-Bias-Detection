@@ -137,6 +137,8 @@ app.mount(
 
 # --- Mount all routers ---
 app.include_router(upload.router,    prefix="/api/v1", tags=["ingestion"])
+from routers import scenario
+app.include_router(scenario.router,  prefix="/api/v1", tags=["ingestion"])
 app.include_router(analyze.router,   prefix="/api/v1", tags=["analysis"])
 app.include_router(remediate.router, prefix="/api/v1", tags=["remediation"])
 app.include_router(explain.router,   prefix="/api/v1", tags=["ai"])

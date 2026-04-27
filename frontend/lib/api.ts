@@ -50,6 +50,20 @@ export async function uploadCSV(file: File): Promise<UploadCSVResponse> {
   return res.json()
 }
 
+export async function loadScenario(scenarioName: string): Promise<UploadCSVResponse> {
+  if (USE_MOCK) {
+    await delay(800)
+    return {
+      job_id: "3f7a1b2c-demo",
+      columns: ["race", "sex", "age", "two_year_recid", "decile_score"],
+      row_count: 6000,
+    }
+  }
+  const res = await fetch(`${API_BASE}/upload/scenario/${scenarioName}`, { method: "POST", headers: getHeaders() })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 export async function uploadModel(
   file: File,
   job_id: string

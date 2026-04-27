@@ -98,6 +98,33 @@ The dashboard will be available at `http://localhost:3000`.
 
 ---
 
+## Production Deployment (Google Cloud Run)
+
+FairLens is fully containerized and can be deployed to Google Cloud Run in seconds.
+
+### 1. Deploy the Backend
+```bash
+cd backend
+gcloud run deploy fairlens-api --source . --region us-central1 --allow-unauthenticated
+```
+*Note: Make sure to set your `SECRET_API_KEY`, `GEMINI_API_KEY`, and `FRONTEND_URL` (set to `*` for testing or the exact frontend URL) via the Google Cloud Console or using `--set-env-vars`.*
+
+### 2. Deploy the Frontend
+Before deploying, create a `.env.production` file in the `frontend/` directory so Next.js can bake the environment variables into the production build:
+```env
+NEXT_PUBLIC_API_URL=https://<YOUR_BACKEND_URL>.run.app/api/v1
+NEXT_PUBLIC_API_KEY=<YOUR_SECRET_API_KEY>
+NEXT_PUBLIC_USE_MOCK=false
+```
+
+Then run the deployment command:
+```bash
+cd frontend
+gcloud run deploy fairlens-frontend --source . --region us-central1 --allow-unauthenticated
+```
+
+---
+
 ## Environment Variables
 
 ### Backend (`backend/.env`)
@@ -232,38 +259,4 @@ FairLens/
 └── docs/
     └── CHANGELOG.md               # Change history
 ```
-
----
-
-## Cloud Deployment (Easy Setup)
-
-**Live Application:** `https://fairlens-api-455157904994.us-central1.run.app`
-
-### 1. Fast Backend Deploy (One-Liner)
-
-Use this single command to build the Docker image and deploy it directly to Cloud Run without downtime:
-
-```bash
-gcloud builds submit --tag us-central1-docker.pkg.dev/project-0c33e365-3fc0-4d06-b0a/fairlens/fairlens-api backend/ && gcloud run deploy fairlens-api --image us-central1-docker.pkg.dev/project-0c33e365-3fc0-4d06-b0a/fairlens/fairlens-api --region=us-central1 --project=project-0c33e365-3fc0-4d06-b0a --quiet
-```
-
-### 2. Frontend Deploy (Vercel)
-
-If your frontend is hosted on Vercel, it automatically redeploys on every git push. Just commit and push your changes:
-
-```bash
-git add -A
-git commit -m "deploy: update to latest codebase"
-git push
-```
-
-### 3. Update Environment Variables (Optional)
-
-If you need to update secrets or URLs:
-```bash
-gcloud run services update fairlens-api \
-  --update-env-vars SECRET_API_KEY=your-key,FRONTEND_URL=https://your-app.vercel.app \
-  --region=us-central1 --quiet
-```
-
 
