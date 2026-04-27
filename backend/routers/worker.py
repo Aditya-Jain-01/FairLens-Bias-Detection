@@ -84,4 +84,7 @@ def run_job(req: WorkerRequest, request: Request):
             set_status(job_id, "error", error=str(exc), message=f"Pipeline failed: {exc}")
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=str(exc))
+        return JSONResponse(
+            {"job_id": job_id, "status": "failed", "error": str(exc)}, 
+            status_code=200
+        )
