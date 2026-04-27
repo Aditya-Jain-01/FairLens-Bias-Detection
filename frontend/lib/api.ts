@@ -181,7 +181,20 @@ export function streamExplanation(
       body: JSON.stringify({ job_id }),
     })
       .then(async (res) => {
-        if (cancelled || !res.body) return
+        if (cancelled) return
+        
+        if (!res.ok) {
+          const text = await res.text()
+          try {
+            const errJson = JSON.parse(text)
+            onError?.(new Error(errJson.detail || text))
+          } catch {
+            onError?.(new Error(`Server error: ${res.status} ${res.statusText}`))
+          }
+          return
+        }
+
+        if (!res.body) return
 
         // Check if response is SSE stream or JSON
         const contentType = res.headers.get("content-type") || ""

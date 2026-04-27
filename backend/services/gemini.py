@@ -30,10 +30,10 @@ _BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 # Ordered by preference — using gemini-2.5-flash as requested by the user.
 _PREFERRED = [
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
     "gemini-2.5-flash",
     "gemini-flash-latest",
-    "gemma-3-27b-it",
-    "gemma-3-12b-it",
     "gemini-2.0-flash",
 ]
 
@@ -174,19 +174,10 @@ def _generate(
                 last_err = exc
                 continue
             elif _is_rate_limited(msg):
-                # Per-minute limit — wait, then retry once before moving on
-                wait = 30
-                logger.warning(f"Model '{model}' rate-limited. Waiting {wait}s then retrying…")
-                time.sleep(wait)
-                try:
-                    text = _call_model(model, key, contents, system=system,
-                                       max_tokens=max_tokens, temperature=temperature)
-                    _working_model = model
-                    return text
-                except RuntimeError as retry_exc:
-                    last_err = retry_exc
-                    logger.warning(f"Model '{model}' still failing after wait: {retry_exc}")
-                    continue
+                # Don't sleep for 30s in a live UI context! Immediately try the next model.
+                logger.warning(f"Model '{model}' rate-limited. Immediately trying next model…")
+                last_err = exc
+                continue
             else:
                 raise
 

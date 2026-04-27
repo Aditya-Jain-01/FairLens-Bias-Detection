@@ -50,6 +50,9 @@ htmlcov/
 backend/storage_local/
 storage_local/
 
+# ── Duplicated build files ───────────────────────────────────────────────────
+backend/test_data/
+
 # ── Results and reports generated during development ─────────────────────────
 results_partial.json
 *.pdf

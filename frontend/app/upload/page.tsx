@@ -4,11 +4,14 @@ import { useRouter } from "next/navigation";
 import { Loader2, ArrowRight, ShieldAlert, X } from "lucide-react";
 import { DropZone } from "@/components/upload/DropZone";
 import { ColumnPicker } from "@/components/upload/ColumnPicker";
-import { uploadCSV, uploadModel, configureJob } from "@/lib/api";
+import { uploadCSV, uploadModel, configureJob, loadScenario } from "@/lib/api";
 import { getJobLabelFromFileName, upsertRecentJob } from "@/lib/recentJobs";
 
 export default function UploadPage() {
   const router = useRouter();
+
+  const [uploadMode, setUploadMode] = useState<"custom" | "library">("custom");
+  const [activeScenario, setActiveScenario] = useState<string>("");
 
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
@@ -69,6 +72,38 @@ export default function UploadPage() {
     setLoading(false);
   };
 
+  const handleLoadScenario = async (scenario: string, name: string) => {
+    setLoading(true);
+    setError("");
+    setPiiWarning([]);
+    setPiiDismissed(false);
+    try {
+      const res = await loadScenario(scenario);
+      setJobId(res.job_id);
+      setColumns(res.columns);
+      setActiveScenario(name);
+      
+      // Scenarios shouldn't have PII, but just in case
+      if (res.pii_scan?.has_pii) {
+        setPiiWarning(res.pii_scan.flagged_columns);
+      }
+      
+      upsertRecentJob({
+        job_id: res.job_id,
+        label: name,
+        stage: "uploading",
+        progress: 5,
+        message: "Scenario loaded, waiting for configuration.",
+      });
+      
+      // Auto-advance to step 2 since files are already provided
+      setStep(2);
+    } catch (e) {
+      setError(`Failed to load scenario: ${(e as Error).message}`);
+    }
+    setLoading(false);
+  };
+
   const submitConfiguration = async () => {
     if (!targetColumn) {
       setError("Please select a target variable.");
@@ -84,7 +119,7 @@ export default function UploadPage() {
       await configureJob(jobId, targetColumn, protectedAttributes, 1);
       upsertRecentJob({
         job_id: jobId,
-        label: csvFile ? getJobLabelFromFileName(csvFile.name) : undefined,
+        label: activeScenario || (csvFile ? getJobLabelFromFileName(csvFile.name) : "Dataset"),
         stage: "configuring",
         progress: 10,
         message: "Configuration saved. Audit queued.",
@@ -184,42 +219,108 @@ export default function UploadPage() {
 
       {step === 1 && (
         <div className="animate-slide-up space-y-8">
-          <div className="grid gap-8 md:grid-cols-2">
-            <div>
-              <h2 className="mb-4 text-xl font-bold text-amber-950">1. Training Data</h2>
-              <DropZone
-                label="Upload Data (.csv)"
-                accept=".csv"
-                onFileSelect={handleCsvUpload}
-                selectedFileName={csvFile?.name}
-              />
-            </div>
-
-            <div className={`transition-opacity duration-300 ${!jobId ? "pointer-events-none opacity-50" : "opacity-100"}`}>
-              <h2 className="mb-4 text-xl font-bold text-amber-950">2. Model Artifact</h2>
-              <DropZone
-                label="Upload Model (.pkl / .onnx)"
-                accept=".pkl,.onnx"
-                onFileSelect={handleModelUpload}
-                selectedFileName={modelFile?.name}
-              />
-            </div>
-          </div>
-
-          <div className="panel-soft flex items-center justify-between p-5">
-            <div>
-              <div className="text-sm font-semibold text-amber-950">Step 1 of 2</div>
-              <div className="text-sm text-amber-900/60">Upload a CSV first. Model upload stays optional.</div>
-            </div>
+          <div className="flex border-b border-amber-600/10 mb-6">
             <button
-              onClick={() => setStep(2)}
-              disabled={!jobId || loading}
-              className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setUploadMode("custom")}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${uploadMode === "custom" ? "border-amber-600 text-amber-900" : "border-transparent text-amber-900/50 hover:text-amber-900/80"}`}
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Next Step"}
-              {!loading && <ArrowRight className="h-5 w-5" />}
+              Upload Custom Data
+            </button>
+            <button
+              onClick={() => setUploadMode("library")}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${uploadMode === "library" ? "border-amber-600 text-amber-900" : "border-transparent text-amber-900/50 hover:text-amber-900/80"}`}
+            >
+              Choose from Library
             </button>
           </div>
+
+          {uploadMode === "custom" && (
+            <div className="animate-fade-in grid gap-8 md:grid-cols-2">
+              <div>
+                <h2 className="mb-4 text-xl font-bold text-amber-950">1. Training Data</h2>
+                <DropZone
+                  label="Upload Data (.csv)"
+                  accept=".csv"
+                  onFileSelect={handleCsvUpload}
+                  selectedFileName={csvFile?.name}
+                />
+              </div>
+
+              <div className={`transition-opacity duration-300 ${!jobId ? "pointer-events-none opacity-50" : "opacity-100"}`}>
+                <h2 className="mb-4 text-xl font-bold text-amber-950">2. Model Artifact</h2>
+                <DropZone
+                  label="Upload Model (.pkl / .onnx)"
+                  accept=".pkl,.onnx"
+                  onFileSelect={handleModelUpload}
+                  selectedFileName={modelFile?.name}
+                />
+              </div>
+            </div>
+          )}
+
+          {uploadMode === "library" && (
+            <div className="animate-fade-in grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  id: "compas",
+                  name: "COMPAS Recidivism",
+                  category: "Criminal Justice",
+                  desc: "Predicts if a defendant will re-offend. Historically flagged for racial bias in US courts.",
+                  target: "two_year_recid",
+                  protected: "race, sex"
+                },
+                {
+                  id: "lawschool",
+                  name: "Law School Admissions",
+                  category: "Education",
+                  desc: "Predicts bar exam passage based on GPA and LSAT. Highlights systemic merit biases.",
+                  target: "pass_bar",
+                  protected: "race, sex"
+                },
+                {
+                  id: "diabetes",
+                  name: "Diabetes Readmission",
+                  category: "Healthcare",
+                  desc: "Predicts 30-day hospital readmission. An intentionally unbiased control dataset.",
+                  target: "readmitted_30",
+                  protected: "race, age_group"
+                }
+              ].map(scenario => (
+                <div key={scenario.id} className="panel p-6 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer border border-amber-600/10 hover:border-amber-500/30" onClick={() => handleLoadScenario(scenario.id, scenario.name)}>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-2">{scenario.category}</div>
+                    <h3 className="text-xl font-bold text-amber-950 mb-2">{scenario.name}</h3>
+                    <p className="text-sm text-amber-900/70 mb-4">{scenario.desc}</p>
+                    <div className="space-y-1 mt-4 border-t border-amber-600/10 pt-4">
+                      <div className="text-xs text-amber-900/60"><span className="font-semibold text-amber-900">Target:</span> {scenario.target}</div>
+                      <div className="text-xs text-amber-900/60"><span className="font-semibold text-amber-900">Protected:</span> {scenario.protected}</div>
+                    </div>
+                  </div>
+                  <button disabled={loading} className="mt-6 w-full btn-primary py-2 text-sm flex items-center justify-center disabled:opacity-50">
+                    {loading && activeScenario === scenario.name ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Load Scenario
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {uploadMode === "custom" && (
+            <div className="panel-soft flex items-center justify-between p-5">
+              <div>
+                <div className="text-sm font-semibold text-amber-950">Step 1 of 2</div>
+                <div className="text-sm text-amber-900/60">Upload a CSV first. Model upload stays optional.</div>
+              </div>
+              <button
+                onClick={() => setStep(2)}
+                disabled={!jobId || loading}
+                className="btn-primary py-2.5 px-6 disabled:opacity-50"
+              >
+                Configure Pipeline
+                <ArrowRight className="ml-2 h-4 w-4 inline" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

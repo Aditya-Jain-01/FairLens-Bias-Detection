@@ -10,6 +10,8 @@ storage_local/
 *.csv
 !test_data/*.csv
 !test_data/*.pkl
+!test_data/dummy_data_fairlens/*.csv
+!test_data/dummy_data_fairlens/*.pkl
 artifacts/
 .git/
 .gitignore
