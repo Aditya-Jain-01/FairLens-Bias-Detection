@@ -48,7 +48,7 @@ def _compute_disparate_impact(
     priv = df[df[protected_col] == privileged_value][target_col].mean()
     unpriv = df[df[protected_col] != privileged_value][target_col].mean()
     if priv == 0:
-        return 0.0
+        return 1.0
     return round(float(unpriv / priv), 3)
 
 
