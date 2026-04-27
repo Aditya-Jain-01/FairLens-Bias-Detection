@@ -61,7 +61,9 @@ export default function HistoryPage() {
   useEffect(() => {
     async function fetchHistory() {
       try {
-        const res = await fetch(`${API_BASE}/history`);
+        const res = await fetch(`${API_BASE}/history`, {
+          headers: process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {}
+        });
         if (!res.ok) throw new Error("Failed to fetch history");
         setHistory(await res.json());
       } catch (e) {

@@ -18,8 +18,12 @@ export default function ComparePage() {
   const [loadingCompare, setLoadingCompare] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE}/history`)
-      .then(res => res.json())
+    const headers = process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {};
+    fetch(`${API_BASE}/history`, { headers })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch history");
+        return res.json();
+      })
       .then(data => setHistory(data))
       .catch(console.error)
       .finally(() => setLoadingHistory(false));
@@ -29,9 +33,10 @@ export default function ComparePage() {
     if (!baselineId || !candidateId) return;
     setLoadingCompare(true);
     try {
+      const headers = process.env.NEXT_PUBLIC_API_KEY ? { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY } : {};
       const [res1, res2] = await Promise.all([
-        fetch(`${API_BASE}/results/${baselineId}`),
-        fetch(`${API_BASE}/results/${candidateId}`)
+        fetch(`${API_BASE}/results/${baselineId}`, { headers }),
+        fetch(`${API_BASE}/results/${candidateId}`, { headers })
       ]);
       const data1 = await res1.json();
       const data2 = await res2.json();
@@ -66,29 +71,32 @@ export default function ComparePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
+    <div className="space-y-8 animate-fade-in pb-20">
+      <section className="panel px-6 py-6 sm:px-8">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
-            <Link href="/history" className="text-slate-500 hover:text-slate-900 transition-colors">
-              <ArrowLeft className="h-6 w-6" />
+            <Link
+              href="/history"
+              className="flex items-center justify-center h-9 w-9 rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-400 dark:border-amber-400/20"
+            >
+              <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Compare Models</h1>
-              <p className="text-sm text-slate-500">Analyze fairness improvements between two audits</p>
+              <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-amber-950 dark:text-amber-100">Compare Models</h1>
+              <p className="mt-0.5 text-sm text-amber-900/60 dark:text-amber-300/60">Analyze fairness improvements between two audits</p>
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <main className="space-y-8">
+        <div className="panel-soft p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Baseline Model</label>
+              <label className="block text-sm font-semibold text-amber-950 dark:text-amber-100 mb-2">Baseline Model</label>
               <select 
                 title="Select baseline model"
-                className="w-full rounded-xl border border-slate-300 py-3 px-4 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-amber-600/20 bg-white/50 dark:bg-black/20 text-amber-950 dark:text-amber-100 py-3 px-4 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                 value={baselineId}
                 onChange={(e) => setBaselineId(e.target.value)}
                 disabled={loadingHistory}
@@ -103,10 +111,10 @@ export default function ComparePage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Candidate Model</label>
+              <label className="block text-sm font-semibold text-amber-950 dark:text-amber-100 mb-2">Candidate Model</label>
               <select 
                 title="Select candidate model"
-                className="w-full rounded-xl border border-slate-300 py-3 px-4 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-amber-600/20 bg-white/50 dark:bg-black/20 text-amber-950 dark:text-amber-100 py-3 px-4 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                 value={candidateId}
                 onChange={(e) => setCandidateId(e.target.value)}
                 disabled={loadingHistory}
@@ -132,23 +140,23 @@ export default function ComparePage() {
         </div>
 
         {baselineData && candidateData && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 grid grid-cols-4 gap-4 font-semibold text-slate-700">
+          <div className="panel overflow-hidden">
+            <div className="px-6 py-4 border-b border-amber-600/10 bg-amber-500/5 grid grid-cols-4 gap-4 font-semibold text-amber-950 dark:text-amber-100">
               <div className="col-span-1">Metric</div>
               <div className="col-span-1">Baseline</div>
               <div className="col-span-1">Candidate</div>
               <div className="col-span-1">Delta</div>
             </div>
             
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-amber-600/10">
               {/* FairLens Score */}
-              <div className="px-6 py-5 grid grid-cols-4 gap-4 items-center hover:bg-slate-50 transition-colors">
+              <div className="px-6 py-5 grid grid-cols-4 gap-4 items-center hover:bg-amber-500/5 transition-colors">
                 <div className="col-span-1">
-                  <div className="font-semibold text-slate-900">FairLens Score</div>
-                  <div className="text-xs text-slate-500 font-normal mt-1">Higher is better (0-100)</div>
+                  <div className="font-semibold text-amber-950 dark:text-amber-100">FairLens Score</div>
+                  <div className="text-xs text-amber-900/60 dark:text-amber-300/60 mt-1">Higher is better (0-100)</div>
                 </div>
-                <div className="col-span-1 font-bold text-slate-900 text-lg">{baselineData.fairness_score?.score || 0}</div>
-                <div className="col-span-1 font-bold text-slate-900 text-lg">{candidateData.fairness_score?.score || 0}</div>
+                <div className="col-span-1 font-bold text-amber-600 text-lg">{baselineData.fairness_score?.score || 0}</div>
+                <div className="col-span-1 font-bold text-amber-600 text-lg">{candidateData.fairness_score?.score || 0}</div>
                 <div className="col-span-1">
                   {renderDelta("score", baselineData.fairness_score?.score || 0, candidateData.fairness_score?.score || 0, false)}
                 </div>
@@ -161,22 +169,22 @@ export default function ComparePage() {
                 if (!bMetric || !cMetric) return null;
                 
                 return (
-                  <div key={metricKey} className="px-6 py-5 grid grid-cols-4 gap-4 items-center hover:bg-slate-50 transition-colors">
+                  <div key={metricKey} className="px-6 py-5 grid grid-cols-4 gap-4 items-center hover:bg-amber-500/5 transition-colors">
                     <div className="col-span-1">
-                      <div className="font-semibold text-slate-900">{bMetric.name}</div>
-                      <div className="text-xs text-slate-500 font-normal mt-1 max-w-[200px] truncate" title={bMetric.description}>
+                      <div className="font-semibold text-amber-950 dark:text-amber-100">{bMetric.name}</div>
+                      <div className="text-xs text-amber-900/60 dark:text-amber-300/60 mt-1 max-w-[200px] truncate" title={bMetric.description}>
                         {bMetric.description}
                       </div>
                     </div>
                     
                     <div className="col-span-1 flex items-center gap-2">
-                       <span className={`w-2 h-2 rounded-full ${bMetric.passed ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                       <span className="font-medium text-slate-900">{bMetric.value.toFixed(3)}</span>
+                       <span className={`w-2 h-2 rounded-full ${bMetric.passed ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                       <span className="font-medium text-amber-950 dark:text-amber-100">{bMetric.value.toFixed(3)}</span>
                     </div>
                     
                     <div className="col-span-1 flex items-center gap-2">
-                       <span className={`w-2 h-2 rounded-full ${cMetric.passed ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                       <span className="font-medium text-slate-900">{cMetric.value.toFixed(3)}</span>
+                       <span className={`w-2 h-2 rounded-full ${cMetric.passed ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                       <span className="font-medium text-amber-950 dark:text-amber-100">{cMetric.value.toFixed(3)}</span>
                     </div>
                     
                     <div className="col-span-1">
