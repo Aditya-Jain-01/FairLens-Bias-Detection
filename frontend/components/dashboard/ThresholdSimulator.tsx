@@ -89,16 +89,16 @@ export const ThresholdSimulator = ({
   return (
     <div className="panel-soft p-8">
       <div className="mb-8">
-        <h3 className="mb-2 text-xl font-bold text-neutral-900">Threshold Calibrator</h3>
-        <p className="text-sm text-neutral-600">
+        <h3 className="mb-2 text-xl font-bold text-amber-950 dark:text-amber-100">Threshold Calibrator</h3>
+        <p className="text-sm text-amber-900/70 dark:text-amber-200/70">
           Fine-tune the decision threshold to balance model accuracy against demographic parity.
         </p>
         {hasError && <p className="mt-2 text-xs text-amber-700">Using fallback threshold data while the API is unavailable.</p>}
       </div>
 
       {data.length === 0 && !loading ? (
-        <div className="flex h-64 w-full items-center justify-center rounded-[24px] border border-dashed border-neutral-200 bg-neutral-50">
-          <p className="text-neutral-500">Loading threshold data...</p>
+        <div className="flex h-64 w-full items-center justify-center rounded-[24px] metric-border bg-amber-500/5 dark:bg-amber-400/5 border-dashed">
+          <p className="text-amber-900/60 dark:text-amber-300/60">Loading threshold data...</p>
         </div>
       ) : (
         <div className="mb-8 h-64 w-full">
@@ -132,10 +132,10 @@ export const ThresholdSimulator = ({
         </div>
       )}
 
-      <div className="surface-muted mb-6 rounded-[24px] border border-neutral-200 p-6">
-        <div className="mb-4 flex justify-between">
-          <span className="font-semibold text-neutral-900">Set Decision Threshold</span>
-          <span className="rounded-full bg-cyan-100 px-3 py-1 font-bold text-cyan-700">{threshold.toFixed(2)}</span>
+      <div className="metric-border mb-6 rounded-[24px] p-6">
+        <div className="mb-4 flex justify-between items-center">
+          <span className="font-semibold text-amber-950 dark:text-amber-100">Set Decision Threshold</span>
+          <span className="rounded-full bg-cyan-100/50 dark:bg-cyan-900/30 px-3 py-1 font-bold text-cyan-700 dark:text-cyan-400">{threshold.toFixed(2)}</span>
         </div>
         <input
           type="range"

@@ -103,9 +103,23 @@ async def get_results(job_id: str) -> dict:
     GET /api/v1/results/{job_id}
 
     Returns results.json for a completed job.
+    Raises 410 Gone if the audit existed but its files have since been deleted from storage.
+    Raises 404 if the job is unknown entirely.
     """
-    if storage.file_exists(job_id, "results.json", bucket="results"):
-        return storage.read_json(job_id, "results.json", bucket="results")
+    try:
+        if storage.file_exists(job_id, "results.json", bucket="results"):
+            return storage.read_json(job_id, "results.json", bucket="results")
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                f"Audit '{job_id}' has expired. "
+                "The source files were removed from cloud storage. "
+                "Please run a new audit."
+            ),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load results: {e}")
 
     raise HTTPException(
         status_code=404,

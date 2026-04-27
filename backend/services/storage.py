@@ -58,7 +58,17 @@ def _gcs_read_json(bucket_name: str, blob_name: str) -> dict:
     client = _gcs_client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_name)
-    return json.loads(blob.download_as_text())
+    try:
+        return json.loads(blob.download_as_text())
+    except Exception as e:
+        # Translate GCS 404 (and missing-blob errors) into a clean exception
+        # so routers can return a proper 410 Gone without exposing bucket URLs.
+        err = str(e).lower()
+        if "not found" in err or "no such object" in err or "404" in err:
+            raise FileNotFoundError(
+                f"Audit data not found: {blob_name!r} has expired or was never uploaded."
+            ) from e
+        raise
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

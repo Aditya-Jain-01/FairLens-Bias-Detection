@@ -200,7 +200,7 @@ def _setup_demo_files(job_id: str):
         return
         
     csv_file, pkl_file = mapping[job_id]
-    test_data_dir = Path(__file__).resolve().parent.parent.parent / "test_data"
+    test_data_dir = Path(__file__).resolve().parent.parent / "test_data"
     
     csv_src = test_data_dir / csv_file
     pkl_src = test_data_dir / pkl_file

@@ -91,8 +91,8 @@ html.dark h4 {
   color: hsl(36, 30%, 90%);
 }
 
+/* Only target semantic text elements — not span, which is used for badges/icons */
 html.dark p,
-html.dark span,
 html.dark label {
   color: hsl(36, 20%, 72%);
 }
@@ -110,6 +110,12 @@ html.dark .text-amber-900\/60 { color: rgb(253 230 138 / 0.68) !important; }
 html.dark .text-amber-900\/50 { color: rgb(253 230 138 / 0.60) !important; }
 html.dark .text-amber-900\/45 { color: rgb(253 230 138 / 0.55) !important; }
 html.dark .text-amber-900\/40 { color: rgb(253 230 138 / 0.48) !important; }
+
+/* amber-800 solid and opacity variants */
+html.dark .text-amber-800    { color: rgb(253 220 100) !important; }
+html.dark .text-amber-800\/80 { color: rgb(253 220 100 / 0.88) !important; }
+html.dark .text-amber-800\/60 { color: rgb(253 220 100 / 0.68) !important; }
+html.dark .text-amber-800\/40 { color: rgb(253 220 100 / 0.48) !important; }
 
 /* amber-700 (used for labels/links) → amber-400 */
 html.dark .text-amber-700 { color: rgb(251 191 36) !important; }

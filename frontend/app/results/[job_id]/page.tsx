@@ -194,11 +194,11 @@ export default function ResultsDashboard({ params }: { params: { job_id: string 
               )}
               <div className="metric-border rounded-2xl px-4 py-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800/60">Target</span>
-                <div className="mt-2 font-bold text-neutral-900">{results.dataset_info.target_column}</div>
+                <div className="mt-2 font-bold text-amber-950 dark:text-amber-100">{results.dataset_info.target_column}</div>
               </div>
               <div className="metric-border rounded-2xl px-4 py-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800/60">Protected</span>
-                <div className="mt-2 font-bold text-neutral-900">{results.dataset_info.protected_attributes.join(", ")}</div>
+                <div className="mt-2 font-bold text-amber-950 dark:text-amber-100">{results.dataset_info.protected_attributes.join(", ")}</div>
               </div>
               <div className="metric-border rounded-2xl px-4 py-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800/60">Job</span>
